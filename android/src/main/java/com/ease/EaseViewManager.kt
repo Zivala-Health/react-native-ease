@@ -3,6 +3,7 @@ package com.ease
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewManagerDelegate
+import com.facebook.react.views.view.ReactViewGroup
 import com.facebook.react.views.view.ReactViewManager
 import com.facebook.react.viewmanagers.EaseViewManagerDelegate
 import com.facebook.react.viewmanagers.EaseViewManagerInterface
@@ -12,9 +13,10 @@ class EaseViewManager :
     ReactViewManager(),
     EaseViewManagerInterface<EaseView> {
 
-    private val delegate = EaseViewManagerDelegate(this)
+    private val delegate = EaseViewManagerDelegate<EaseView, EaseViewManager>(this)
 
-    override fun getDelegate(): ViewManagerDelegate<EaseView> = delegate
+    override fun getDelegate(): ViewManagerDelegate<ReactViewGroup> =
+        delegate as ViewManagerDelegate<ReactViewGroup>
 
     override fun getName(): String = NAME
 
@@ -93,14 +95,14 @@ class EaseViewManager :
 
     // --- Lifecycle ---
 
-    override fun onAfterUpdateTransaction(view: EaseView) {
+    override fun onAfterUpdateTransaction(view: ReactViewGroup) {
         super.onAfterUpdateTransaction(view)
-        view.applyPendingAnimateValues()
+        (view as? EaseView)?.applyPendingAnimateValues()
     }
 
-    override fun onDropViewInstance(view: EaseView) {
+    override fun onDropViewInstance(view: ReactViewGroup) {
         super.onDropViewInstance(view)
-        view.cleanup()
+        (view as? EaseView)?.cleanup()
     }
 
     companion object {
