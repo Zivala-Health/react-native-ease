@@ -3,6 +3,7 @@
 #import <React/RCTConversions.h>
 
 #import <react/renderer/components/EaseViewSpec/ComponentDescriptors.h>
+#import <react/renderer/components/EaseViewSpec/EventEmitters.h>
 #import <react/renderer/components/EaseViewSpec/Props.h>
 #import <react/renderer/components/EaseViewSpec/RCTComponentViewHelpers.h>
 
@@ -79,8 +80,6 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
     spring.mass = props.transitionMass;
     spring.initialVelocity = 0;
     spring.duration = spring.settlingDuration;
-    spring.fillMode = kCAFillModeForwards;
-    spring.removedOnCompletion = NO;
     return spring;
   } else {
     CABasicAnimation *timing = [CABasicAnimation animationWithKeyPath:keyPath];
@@ -88,8 +87,6 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
     timing.toValue = toValue;
     timing.duration = props.transitionDuration / 1000.0;
     timing.timingFunction = timingFunctionForEasing(props.transitionEasing);
-    timing.fillMode = kCAFillModeForwards;
-    timing.removedOnCompletion = NO;
     if (loop) {
       if (props.transitionLoop == EaseViewTransitionLoop::Repeat) {
         timing.repeatCount = HUGE_VALF;
@@ -108,24 +105,20 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                          toValue:(NSValue *)toValue
                            props:(const EaseViewProps &)props
                             loop:(BOOL)loop {
-  [CATransaction begin];
-  [CATransaction setDisableActions:YES];
   [self.layer setValue:toValue forKeyPath:keyPath];
-  [CATransaction commit];
 
   CAAnimation *animation = [self createAnimationForKeyPath:keyPath
                                                  fromValue:fromValue
                                                    toValue:toValue
                                                      props:props
                                                       loop:loop];
+  [animation setValue:animationKey forKey:@"easeAnimKey"];
+  animation.delegate = self;
   [self.layer addAnimation:animation forKey:animationKey];
 }
 
 - (void)setModelValue:(NSValue *)value forKeyPath:(NSString *)keyPath {
-  [CATransaction begin];
-  [CATransaction setDisableActions:YES];
   [self.layer setValue:value forKeyPath:keyPath];
-  [CATransaction commit];
 }
 
 #pragma mark - Props update
@@ -134,6 +127,9 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
            oldProps:(const Props::Shared &)oldProps {
   const auto &newViewProps =
       *std::static_pointer_cast<const EaseViewProps>(props);
+
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
 
   if (_isFirstMount) {
     _isFirstMount = NO;
@@ -287,7 +283,44 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
     }
   }
 
+  [CATransaction commit];
+
   [super updateProps:props oldProps:oldProps];
+}
+
+#pragma mark - CAAnimationDelegate
+
+- (void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag {
+  NSString *animKey = [anim valueForKey:@"easeAnimKey"];
+  if (!animKey || !_eventEmitter) {
+    return;
+  }
+
+  // Map animation key to JS property name
+  NSString *jsProperty = nil;
+  if ([animKey isEqualToString:kAnimKeyOpacity]) {
+    jsProperty = @"opacity";
+  } else if ([animKey isEqualToString:kAnimKeyTranslateX]) {
+    jsProperty = @"translateX";
+  } else if ([animKey isEqualToString:kAnimKeyTranslateY]) {
+    jsProperty = @"translateY";
+  } else if ([animKey isEqualToString:kAnimKeyScaleX]) {
+    jsProperty = @"scale";
+  } else if ([animKey isEqualToString:kAnimKeyScaleY]) {
+    // Skip — scaleX already fires for scale
+    return;
+  } else if ([animKey isEqualToString:kAnimKeyRotate]) {
+    jsProperty = @"rotate";
+  }
+
+  if (jsProperty) {
+    auto emitter =
+        std::static_pointer_cast<const EaseViewEventEmitter>(_eventEmitter);
+    emitter->onTransitionEnd(EaseViewEventEmitter::OnTransitionEnd{
+        .property = std::string([jsProperty UTF8String]),
+        .finished = static_cast<bool>(flag),
+    });
+  }
 }
 
 - (void)prepareForRecycle {
