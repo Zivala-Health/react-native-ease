@@ -1,6 +1,6 @@
 import { StyleSheet, type ViewProps, type ViewStyle } from 'react-native';
 import NativeEaseView from './EaseViewNativeComponent';
-import type { AnimateProps, Transition } from './types';
+import type { AnimateProps, Transition, TransitionEndEvent } from './types';
 
 export type EaseViewStyle = Omit<ViewStyle, 'opacity' | 'transform'>;
 
@@ -19,6 +19,8 @@ export type EaseViewProps = Omit<ViewProps, 'style'> & {
   initialAnimate?: AnimateProps;
   /** Animation configuration (timing or spring). */
   transition?: Transition;
+  /** Called when a property's animation ends. Reports which property and whether it finished naturally or was interrupted. */
+  onTransitionEnd?: (event: TransitionEndEvent) => void;
   /**
    * Use a hardware layer during animations on Android for smoother rendering.
    * The view is rasterized to a GPU texture while animating so property changes
@@ -35,6 +37,7 @@ export function EaseView({
   animate,
   initialAnimate,
   transition,
+  onTransitionEnd,
   useHardwareLayer = true,
   style,
   ...rest
@@ -77,9 +80,15 @@ export function EaseView({
   const transitionLoop =
     transition?.type === 'timing' ? transition.loop ?? 'none' : 'none';
 
+  const handleTransitionEnd = onTransitionEnd
+    ? (event: { nativeEvent: { property: string; finished: boolean } }) =>
+        onTransitionEnd(event.nativeEvent as TransitionEndEvent)
+    : undefined;
+
   return (
     <NativeEaseView
       style={cleanStyle}
+      onTransitionEnd={handleTransitionEnd}
       animateOpacity={resolved.opacity}
       animateTranslateX={resolved.translateX}
       animateTranslateY={resolved.translateY}

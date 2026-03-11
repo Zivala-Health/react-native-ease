@@ -35,6 +35,11 @@ export interface NativeProps extends ViewProps {
     'none'
   >;
 
+  // Events
+  onTransitionEnd?: CodegenTypes.DirectEventHandler<
+    Readonly<{ property: string; finished: boolean }>
+  >;
+
   // Android hardware layer optimization (no-op on iOS)
   useHardwareLayer?: CodegenTypes.WithDefault<boolean, true>;
 }

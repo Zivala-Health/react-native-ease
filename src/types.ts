@@ -26,6 +26,14 @@ export type SpringTransition = {
 /** Animation transition configuration. */
 export type Transition = TimingTransition | SpringTransition;
 
+/** Event fired when a property animation ends. */
+export type TransitionEndEvent = {
+  /** Which property finished animating. */
+  property: 'opacity' | 'translateX' | 'translateY' | 'scale' | 'rotate';
+  /** True if the animation completed naturally, false if interrupted. */
+  finished: boolean;
+};
+
 /** Animatable view properties. Unspecified properties default to their identity values. */
 export type AnimateProps = {
   /** View opacity (0–1). @default 1 */

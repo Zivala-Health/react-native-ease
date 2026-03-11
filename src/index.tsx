@@ -6,4 +6,5 @@ export type {
   TimingTransition,
   SpringTransition,
   EasingType,
+  TransitionEndEvent,
 } from './types';
