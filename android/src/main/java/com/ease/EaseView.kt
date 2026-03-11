@@ -35,12 +35,27 @@ class EaseView(context: Context) : ReactViewGroup(context) {
     var transitionMass: Float = 1.0f
     var transitionLoop: String = "none"
 
+    // --- Transform origin (0–1 fractions) ---
+    var transformOriginX: Float = 0.5f
+        set(value) {
+            field = value
+            applyTransformOrigin()
+        }
+    var transformOriginY: Float = 0.5f
+        set(value) {
+            field = value
+            applyTransformOrigin()
+        }
+
     // --- Hardware layer ---
-    var useHardwareLayer: Boolean = true
+    var useHardwareLayer: Boolean = false
 
     // --- Event callback ---
-    var onTransitionEnd: ((property: String, finished: Boolean) -> Unit)? = null
+    var onTransitionEnd: ((finished: Boolean) -> Unit)? = null
     private var activeAnimationCount: Int = 0
+    private var animationBatchId: Int = 0
+    private var pendingBatchAnimationCount: Int = 0
+    private var anyInterrupted: Boolean = false
     private var savedLayerType: Int = View.LAYER_TYPE_NONE
 
     // --- Initial animate values (set by ViewManager) ---
@@ -67,16 +82,6 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         private val INTERPOLATOR_EASE_OUT by lazy { PathInterpolator(0.0f, 0.0f, 0.58f, 1.0f) }
         private val INTERPOLATOR_EASE_IN_OUT by lazy { PathInterpolator(0.42f, 0f, 0.58f, 1.0f) }
         private val INTERPOLATOR_LINEAR by lazy { LinearInterpolator() }
-    }
-
-    private fun toJsPropertyName(propertyName: String): String? = when (propertyName) {
-        "alpha" -> "opacity"
-        "translationX" -> "translateX"
-        "translationY" -> "translateY"
-        "scaleX" -> "scale"
-        "scaleY" -> null // Skip — scaleX already fires for scale
-        "rotation" -> "rotate"
-        else -> null
     }
 
     private fun getInterpolator(easing: String): TimeInterpolator = when (easing) {
@@ -107,6 +112,20 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         }
     }
 
+    // --- Transform origin ---
+
+    fun applyTransformOrigin() {
+        if (width > 0 && height > 0) {
+            pivotX = width * transformOriginX
+            pivotY = height * transformOriginY
+        }
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        applyTransformOrigin()
+    }
+
     fun applyPendingAnimateValues() {
         applyAnimateValues(pendingOpacity, pendingTranslateX, pendingTranslateY, pendingScale, pendingRotate)
     }
@@ -118,6 +137,14 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         scale: Float,
         rotate: Float
     ) {
+        if (pendingBatchAnimationCount > 0) {
+            onTransitionEnd?.invoke(false)
+        }
+
+        animationBatchId++
+        pendingBatchAnimationCount = 0
+        anyInterrupted = false
+
         if (isFirstMount) {
             isFirstMount = false
 
@@ -239,6 +266,9 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         cancelSpringForProperty(propertyName)
         runningAnimators[propertyName]?.cancel()
 
+        val batchId = animationBatchId
+        pendingBatchAnimationCount++
+
         val animator = ObjectAnimator.ofFloat(this, propertyName, fromValue, toValue).apply {
             duration = transitionDuration.toLong()
             interpolator = getInterpolator(transitionEasing)
@@ -260,8 +290,12 @@ class EaseView(context: Context) : ReactViewGroup(context) {
                 }
                 override fun onAnimationEnd(animation: Animator) {
                     this@EaseView.onEaseAnimationEnd()
-                    toJsPropertyName(propertyName)?.let { jsProp ->
-                        onTransitionEnd?.invoke(jsProp, !cancelled)
+                    if (batchId == animationBatchId) {
+                        if (cancelled) anyInterrupted = true
+                        pendingBatchAnimationCount--
+                        if (pendingBatchAnimationCount <= 0) {
+                            onTransitionEnd?.invoke(!anyInterrupted)
+                        }
                     }
                 }
             })
@@ -280,6 +314,9 @@ class EaseView(context: Context) : ReactViewGroup(context) {
             return
         }
 
+        val batchId = animationBatchId
+        pendingBatchAnimationCount++
+
         val dampingRatio = (transitionDamping / (2.0f * sqrt(transitionStiffness * transitionMass)))
             .coerceAtLeast(0.01f)
 
@@ -296,18 +333,11 @@ class EaseView(context: Context) : ReactViewGroup(context) {
             }
             addEndListener { _, canceled, _, _ ->
                 this@EaseView.onEaseAnimationEnd()
-                val viewPropertyName = when (viewProperty) {
-                    DynamicAnimation.ALPHA -> "alpha"
-                    DynamicAnimation.TRANSLATION_X -> "translationX"
-                    DynamicAnimation.TRANSLATION_Y -> "translationY"
-                    DynamicAnimation.SCALE_X -> "scaleX"
-                    DynamicAnimation.SCALE_Y -> "scaleY"
-                    DynamicAnimation.ROTATION -> "rotation"
-                    else -> null
-                }
-                viewPropertyName?.let { name ->
-                    toJsPropertyName(name)?.let { jsProp ->
-                        onTransitionEnd?.invoke(jsProp, !canceled)
+                if (batchId == animationBatchId) {
+                    if (canceled) anyInterrupted = true
+                    pendingBatchAnimationCount--
+                    if (pendingBatchAnimationCount <= 0) {
+                        onTransitionEnd?.invoke(!anyInterrupted)
                     }
                 }
             }

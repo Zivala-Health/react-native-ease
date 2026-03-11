@@ -40,6 +40,11 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
 
 @implementation EaseView {
   BOOL _isFirstMount;
+  NSInteger _animationBatchId;
+  NSInteger _pendingAnimationCount;
+  BOOL _anyInterrupted;
+  CGFloat _transformOriginX;
+  CGFloat _transformOriginY;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider {
@@ -51,8 +56,49 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
     static const auto defaultProps = std::make_shared<const EaseViewProps>();
     _props = defaultProps;
     _isFirstMount = YES;
+    _transformOriginX = 0.5;
+    _transformOriginY = 0.5;
   }
   return self;
+}
+
+#pragma mark - Transform origin
+
+- (void)updateAnchorPoint {
+  CGPoint newAnchor = CGPointMake(_transformOriginX, _transformOriginY);
+  if (CGPointEqualToPoint(newAnchor, self.layer.anchorPoint)) {
+    return;
+  }
+  CGPoint oldAnchor = self.layer.anchorPoint;
+  CGSize size = self.layer.bounds.size;
+  CGPoint pos = self.layer.position;
+  pos.x += (newAnchor.x - oldAnchor.x) * size.width;
+  pos.y += (newAnchor.y - oldAnchor.y) * size.height;
+  self.layer.anchorPoint = newAnchor;
+  self.layer.position = pos;
+}
+
+- (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
+           oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics {
+  // Temporarily reset to default anchorPoint so super's frame setting
+  // computes position correctly, then re-apply our custom anchorPoint.
+  CGPoint customAnchor = self.layer.anchorPoint;
+  BOOL hasCustomAnchor =
+      !CGPointEqualToPoint(customAnchor, CGPointMake(0.5, 0.5));
+  if (hasCustomAnchor) {
+    self.layer.anchorPoint = CGPointMake(0.5, 0.5);
+  }
+
+  [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+
+  if (hasCustomAnchor) {
+    CGSize size = self.layer.bounds.size;
+    CGPoint pos = self.layer.position;
+    pos.x += (customAnchor.x - 0.5) * size.width;
+    pos.y += (customAnchor.y - 0.5) * size.height;
+    self.layer.anchorPoint = customAnchor;
+    self.layer.position = pos;
+  }
 }
 
 #pragma mark - Animation helpers
@@ -112,7 +158,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                                                    toValue:toValue
                                                      props:props
                                                       loop:loop];
-  [animation setValue:animationKey forKey:@"easeAnimKey"];
+  _pendingAnimationCount++;
+  [animation setValue:@(_animationBatchId) forKey:@"easeBatchId"];
   animation.delegate = self;
   [self.layer addAnimation:animation forKey:animationKey];
 }
@@ -130,6 +177,25 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
 
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
+
+  if (_transformOriginX != newViewProps.transformOriginX ||
+      _transformOriginY != newViewProps.transformOriginY) {
+    _transformOriginX = newViewProps.transformOriginX;
+    _transformOriginY = newViewProps.transformOriginY;
+    [self updateAnchorPoint];
+  }
+
+  if (_pendingAnimationCount > 0 && _eventEmitter) {
+    auto emitter =
+        std::static_pointer_cast<const EaseViewEventEmitter>(_eventEmitter);
+    emitter->onTransitionEnd(EaseViewEventEmitter::OnTransitionEnd{
+        .finished = false,
+    });
+  }
+
+  _animationBatchId++;
+  _pendingAnimationCount = 0;
+  _anyInterrupted = NO;
 
   if (_isFirstMount) {
     _isFirstMount = NO;
@@ -291,34 +357,20 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
 #pragma mark - CAAnimationDelegate
 
 - (void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag {
-  NSString *animKey = [anim valueForKey:@"easeAnimKey"];
-  if (!animKey || !_eventEmitter) {
+  NSNumber *batchId = [anim valueForKey:@"easeBatchId"];
+  if (!batchId || batchId.integerValue != _animationBatchId || !_eventEmitter) {
     return;
   }
 
-  // Map animation key to JS property name
-  NSString *jsProperty = nil;
-  if ([animKey isEqualToString:kAnimKeyOpacity]) {
-    jsProperty = @"opacity";
-  } else if ([animKey isEqualToString:kAnimKeyTranslateX]) {
-    jsProperty = @"translateX";
-  } else if ([animKey isEqualToString:kAnimKeyTranslateY]) {
-    jsProperty = @"translateY";
-  } else if ([animKey isEqualToString:kAnimKeyScaleX]) {
-    jsProperty = @"scale";
-  } else if ([animKey isEqualToString:kAnimKeyScaleY]) {
-    // Skip — scaleX already fires for scale
-    return;
-  } else if ([animKey isEqualToString:kAnimKeyRotate]) {
-    jsProperty = @"rotate";
+  if (!flag) {
+    _anyInterrupted = YES;
   }
-
-  if (jsProperty) {
+  _pendingAnimationCount--;
+  if (_pendingAnimationCount <= 0) {
     auto emitter =
         std::static_pointer_cast<const EaseViewEventEmitter>(_eventEmitter);
     emitter->onTransitionEnd(EaseViewEventEmitter::OnTransitionEnd{
-        .property = std::string([jsProperty UTF8String]),
-        .finished = static_cast<bool>(flag),
+        .finished = !_anyInterrupted,
     });
   }
 }
@@ -327,6 +379,11 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
   [super prepareForRecycle];
   [self.layer removeAllAnimations];
   _isFirstMount = YES;
+  _pendingAnimationCount = 0;
+  _anyInterrupted = NO;
+  _transformOriginX = 0.5;
+  _transformOriginY = 0.5;
+  self.layer.anchorPoint = CGPointMake(0.5, 0.5);
 }
 
 @end

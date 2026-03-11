@@ -1,7 +1,6 @@
 package com.ease
 
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.common.MapBuilder
 import com.facebook.react.module.annotations.ReactModule
@@ -20,11 +19,11 @@ class EaseViewManager : ReactViewManager() {
 
     override fun createViewInstance(context: ThemedReactContext): EaseView {
         val view = EaseView(context)
-        view.onTransitionEnd = { property, finished ->
+        view.onTransitionEnd = { finished ->
             val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
             val surfaceId = UIManagerHelper.getSurfaceId(context)
             eventDispatcher?.dispatchEvent(
-                TransitionEndEvent(surfaceId, view.id, property, finished)
+                TransitionEndEvent(surfaceId, view.id, finished)
             )
         }
         return view
@@ -123,23 +122,21 @@ class EaseViewManager : ReactViewManager() {
 
     // --- Hardware layer ---
 
-    @ReactProp(name = "useHardwareLayer", defaultBoolean = true)
+    @ReactProp(name = "useHardwareLayer", defaultBoolean = false)
     fun setUseHardwareLayer(view: EaseView, value: Boolean) {
         view.useHardwareLayer = value
     }
 
-    // --- Prevent BaseViewManager from resetting animated properties ---
+    // --- Transform origin ---
 
-    override fun setTransformProperty(
-        view: ReactViewGroup,
-        transforms: ReadableArray?,
-        transformOrigin: ReadableArray?
-    ) {
-        // No-op: we manage translationX/Y, scaleX/Y, rotation ourselves via animations.
+    @ReactProp(name = "transformOriginX", defaultFloat = 0.5f)
+    fun setTransformOriginX(view: EaseView, value: Float) {
+        view.transformOriginX = value
     }
 
-    override fun setOpacity(view: ReactViewGroup, opacity: Float) {
-        // No-op: we manage opacity ourselves via animations.
+    @ReactProp(name = "transformOriginY", defaultFloat = 0.5f)
+    fun setTransformOriginY(view: EaseView, value: Float) {
+        view.transformOriginY = value
     }
 
     // --- Lifecycle ---
@@ -163,12 +160,10 @@ class EaseViewManager : ReactViewManager() {
     private class TransitionEndEvent(
         surfaceId: Int,
         viewId: Int,
-        private val property: String,
         private val finished: Boolean
     ) : Event<TransitionEndEvent>(surfaceId, viewId) {
         override fun getEventName() = "onTransitionEnd"
         override fun getEventData(): WritableMap = Arguments.createMap().apply {
-            putString("property", property)
             putBoolean("finished", finished)
         }
     }

@@ -7,4 +7,5 @@ export type {
   SpringTransition,
   EasingType,
   TransitionEndEvent,
+  TransformOrigin,
 } from './types';

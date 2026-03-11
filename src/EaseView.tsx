@@ -1,6 +1,11 @@
 import { StyleSheet, type ViewProps, type ViewStyle } from 'react-native';
 import NativeEaseView from './EaseViewNativeComponent';
-import type { AnimateProps, Transition, TransitionEndEvent } from './types';
+import type {
+  AnimateProps,
+  Transition,
+  TransitionEndEvent,
+  TransformOrigin,
+} from './types';
 
 export type EaseViewStyle = Omit<ViewStyle, 'opacity' | 'transform'>;
 
@@ -19,16 +24,27 @@ export type EaseViewProps = Omit<ViewProps, 'style'> & {
   initialAnimate?: AnimateProps;
   /** Animation configuration (timing or spring). */
   transition?: Transition;
-  /** Called when a property's animation ends. Reports which property and whether it finished naturally or was interrupted. */
+  /** Called when all animations complete. Reports whether they finished naturally or were interrupted. */
   onTransitionEnd?: (event: TransitionEndEvent) => void;
   /**
-   * Use a hardware layer during animations on Android for smoother rendering.
-   * The view is rasterized to a GPU texture while animating so property changes
-   * are composited on the RenderThread. No-op on iOS where Core Animation
-   * already runs off the main thread.
-   * @default true
+   * Enable Android hardware layer during animations. The view is rasterized to
+   * a GPU texture so animated property changes (opacity, scale, rotation) are
+   * composited on the RenderThread without redrawing the view hierarchy.
+   *
+   * **Trade-offs:**
+   * - Faster rendering of opacity/scale/rotation animations.
+   * - Uses additional GPU memory for the off-screen texture.
+   * - Children that overflow the view's layout bounds are clipped by the
+   *   texture, which can cause visual artifacts with `translateX`/`translateY`.
+   *
+   * Best suited for views that animate opacity, scale, or rotation without
+   * overflowing children. No-op on iOS where Core Animation already composites
+   * off the main thread.
+   * @default false
    */
   useHardwareLayer?: boolean;
+  /** Pivot point for scale and rotation as 0–1 fractions. @default { x: 0.5, y: 0.5 } (center) */
+  transformOrigin?: TransformOrigin;
   /** Non-animated styles (layout, colors, borders, etc.). `opacity` and `transform` are excluded — use `animate` instead. */
   style?: EaseViewStyle | EaseViewStyle[];
 };
@@ -38,7 +54,8 @@ export function EaseView({
   initialAnimate,
   transition,
   onTransitionEnd,
-  useHardwareLayer = true,
+  useHardwareLayer = false,
+  transformOrigin,
   style,
   ...rest
 }: EaseViewProps) {
@@ -81,8 +98,8 @@ export function EaseView({
     transition?.type === 'timing' ? transition.loop ?? 'none' : 'none';
 
   const handleTransitionEnd = onTransitionEnd
-    ? (event: { nativeEvent: { property: string; finished: boolean } }) =>
-        onTransitionEnd(event.nativeEvent as TransitionEndEvent)
+    ? (event: { nativeEvent: { finished: boolean } }) =>
+        onTransitionEnd(event.nativeEvent)
     : undefined;
 
   return (
@@ -107,6 +124,8 @@ export function EaseView({
       transitionMass={transitionMass}
       transitionLoop={transitionLoop}
       useHardwareLayer={useHardwareLayer}
+      transformOriginX={transformOrigin?.x ?? 0.5}
+      transformOriginY={transformOrigin?.y ?? 0.5}
       {...rest}
     />
   );

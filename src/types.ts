@@ -26,12 +26,18 @@ export type SpringTransition = {
 /** Animation transition configuration. */
 export type Transition = TimingTransition | SpringTransition;
 
-/** Event fired when a property animation ends. */
+/** Event fired when the animation ends. */
 export type TransitionEndEvent = {
-  /** Which property finished animating. */
-  property: 'opacity' | 'translateX' | 'translateY' | 'scale' | 'rotate';
   /** True if the animation completed naturally, false if interrupted. */
   finished: boolean;
+};
+
+/** Transform origin as 0–1 fractions. Default is center (0.5, 0.5). */
+export type TransformOrigin = {
+  /** Horizontal origin. 0 = left, 0.5 = center, 1 = right. @default 0.5 */
+  x?: number;
+  /** Vertical origin. 0 = top, 0.5 = center, 1 = bottom. @default 0.5 */
+  y?: number;
 };
 
 /** Animatable view properties. Unspecified properties default to their identity values. */

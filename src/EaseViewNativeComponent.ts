@@ -35,13 +35,17 @@ export interface NativeProps extends ViewProps {
     'none'
   >;
 
+  // Transform origin (0–1 fractions, default center)
+  transformOriginX?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.5>;
+  transformOriginY?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.5>;
+
   // Events
   onTransitionEnd?: CodegenTypes.DirectEventHandler<
-    Readonly<{ property: string; finished: boolean }>
+    Readonly<{ finished: boolean }>
   >;
 
   // Android hardware layer optimization (no-op on iOS)
-  useHardwareLayer?: CodegenTypes.WithDefault<boolean, true>;
+  useHardwareLayer?: CodegenTypes.WithDefault<boolean, false>;
 }
 
 export default codegenNativeComponent<NativeProps>(
