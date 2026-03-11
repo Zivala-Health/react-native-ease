@@ -100,6 +100,13 @@ class EaseViewManager : ReactViewManager() {
         view.transitionMass = value
     }
 
+    // --- Hardware layer ---
+
+    @ReactProp(name = "useHardwareLayer", defaultBoolean = true)
+    fun setUseHardwareLayer(view: EaseView, value: Boolean) {
+        view.useHardwareLayer = value
+    }
+
     // --- Lifecycle ---
 
     override fun onAfterUpdateTransaction(view: ReactViewGroup) {

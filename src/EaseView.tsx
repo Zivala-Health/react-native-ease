@@ -13,9 +13,21 @@ const IDENTITY: Required<AnimateProps> = {
 };
 
 export type EaseViewProps = Omit<ViewProps, 'style'> & {
+  /** Target values for animated properties. */
   animate?: AnimateProps;
+  /** Starting values for enter animations. Animates to `animate` on mount. */
   initialAnimate?: AnimateProps;
+  /** Animation configuration (timing or spring). */
   transition?: Transition;
+  /**
+   * Use a hardware layer during animations on Android for smoother rendering.
+   * The view is rasterized to a GPU texture while animating so property changes
+   * are composited on the RenderThread. No-op on iOS where Core Animation
+   * already runs off the main thread.
+   * @default true
+   */
+  useHardwareLayer?: boolean;
+  /** Non-animated styles (layout, colors, borders, etc.). `opacity` and `transform` are excluded — use `animate` instead. */
   style?: EaseViewStyle | EaseViewStyle[];
 };
 
@@ -23,6 +35,7 @@ export function EaseView({
   animate,
   initialAnimate,
   transition,
+  useHardwareLayer = true,
   style,
   ...rest
 }: EaseViewProps) {
@@ -81,6 +94,7 @@ export function EaseView({
       transitionDamping={transitionDamping}
       transitionStiffness={transitionStiffness}
       transitionMass={transitionMass}
+      useHardwareLayer={useHardwareLayer}
       {...rest}
     />
   );

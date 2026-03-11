@@ -1,8 +1,11 @@
 package com.ease
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.TimeInterpolator
 import android.content.Context
+import android.view.View
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import androidx.dynamicanimation.animation.DynamicAnimation
@@ -31,6 +34,11 @@ class EaseView(context: Context) : ReactViewGroup(context) {
     var transitionStiffness: Float = 120.0f
     var transitionMass: Float = 1.0f
 
+    // --- Hardware layer ---
+    var useHardwareLayer: Boolean = true
+    private var activeAnimationCount: Int = 0
+    private var savedLayerType: Int = View.LAYER_TYPE_NONE
+
     // --- Initial animate values (set by ViewManager) ---
     var initialAnimateOpacity: Float = 1.0f
     var initialAnimateTranslateX: Float = 0.0f
@@ -56,6 +64,26 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         "easeInOut" -> PathInterpolator(0.42f, 0f, 0.58f, 1.0f)
         "linear" -> LinearInterpolator()
         else -> PathInterpolator(0.42f, 0f, 0.58f, 1.0f)
+    }
+
+    // --- Hardware layer management ---
+
+    private fun onEaseAnimationStart() {
+        if (activeAnimationCount == 0 && useHardwareLayer) {
+            savedLayerType = layerType
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        }
+        activeAnimationCount++
+    }
+
+    private fun onEaseAnimationEnd() {
+        activeAnimationCount--
+        if (activeAnimationCount <= 0) {
+            activeAnimationCount = 0
+            if (useHardwareLayer && layerType == View.LAYER_TYPE_HARDWARE) {
+                setLayerType(savedLayerType, null)
+            }
+        }
     }
 
     fun applyPendingAnimateValues() {
@@ -192,6 +220,14 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         val animator = ObjectAnimator.ofFloat(this, propertyName, fromValue, toValue).apply {
             duration = transitionDuration.toLong()
             interpolator = getInterpolator(transitionEasing)
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationStart(animation: Animator) {
+                    this@EaseView.onEaseAnimationStart()
+                }
+                override fun onAnimationEnd(animation: Animator) {
+                    this@EaseView.onEaseAnimationEnd()
+                }
+            })
         }
 
         runningAnimators[propertyName] = animator
@@ -215,8 +251,18 @@ class EaseView(context: Context) : ReactViewGroup(context) {
                 this.dampingRatio = dampingRatio
                 this.stiffness = transitionStiffness
             }
+            addUpdateListener { _, _, _ ->
+                // First update — enable hardware layer
+                if (activeAnimationCount == 0) {
+                    this@EaseView.onEaseAnimationStart()
+                }
+            }
+            addEndListener { _, _, _, _ ->
+                this@EaseView.onEaseAnimationEnd()
+            }
         }
 
+        onEaseAnimationStart()
         runningSpringAnimations[viewProperty] = spring
         spring.start()
     }
@@ -265,6 +311,11 @@ class EaseView(context: Context) : ReactViewGroup(context) {
             }
         }
         runningSpringAnimations.clear()
+
+        if (activeAnimationCount > 0 && layerType == View.LAYER_TYPE_HARDWARE) {
+            setLayerType(savedLayerType, null)
+        }
+        activeAnimationCount = 0
 
         prevOpacity = null
         prevTranslateX = null
