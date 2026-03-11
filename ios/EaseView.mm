@@ -67,7 +67,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
 - (CAAnimation *)createAnimationForKeyPath:(NSString *)keyPath
                                  fromValue:(NSValue *)fromValue
                                    toValue:(NSValue *)toValue
-                                     props:(const EaseViewProps &)props {
+                                     props:(const EaseViewProps &)props
+                                      loop:(BOOL)loop {
   if (props.transitionType == EaseViewTransitionType::Spring) {
     CASpringAnimation *spring =
         [CASpringAnimation animationWithKeyPath:keyPath];
@@ -89,6 +90,14 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
     timing.timingFunction = timingFunctionForEasing(props.transitionEasing);
     timing.fillMode = kCAFillModeForwards;
     timing.removedOnCompletion = NO;
+    if (loop) {
+      if (props.transitionLoop == EaseViewTransitionLoop::Repeat) {
+        timing.repeatCount = HUGE_VALF;
+      } else if (props.transitionLoop == EaseViewTransitionLoop::Reverse) {
+        timing.repeatCount = HUGE_VALF;
+        timing.autoreverses = YES;
+      }
+    }
     return timing;
   }
 }
@@ -97,7 +106,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                     animationKey:(NSString *)animationKey
                        fromValue:(NSValue *)fromValue
                          toValue:(NSValue *)toValue
-                           props:(const EaseViewProps &)props {
+                           props:(const EaseViewProps &)props
+                            loop:(BOOL)loop {
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   [self.layer setValue:toValue forKeyPath:keyPath];
@@ -106,7 +116,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
   CAAnimation *animation = [self createAnimationForKeyPath:keyPath
                                                  fromValue:fromValue
                                                    toValue:toValue
-                                                     props:props];
+                                                     props:props
+                                                      loop:loop];
   [self.layer addAnimation:animation forKey:animationKey];
 }
 
@@ -157,7 +168,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                           animationKey:kAnimKeyOpacity
                              fromValue:@(newViewProps.initialAnimateOpacity)
                                toValue:@(newViewProps.animateOpacity)
-                                 props:newViewProps];
+                                 props:newViewProps
+                                  loop:YES];
       }
       if (newViewProps.initialAnimateTranslateX !=
           newViewProps.animateTranslateX) {
@@ -165,7 +177,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                           animationKey:kAnimKeyTranslateX
                              fromValue:@(newViewProps.initialAnimateTranslateX)
                                toValue:@(newViewProps.animateTranslateX)
-                                 props:newViewProps];
+                                 props:newViewProps
+                                  loop:YES];
       }
       if (newViewProps.initialAnimateTranslateY !=
           newViewProps.animateTranslateY) {
@@ -173,19 +186,22 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                           animationKey:kAnimKeyTranslateY
                              fromValue:@(newViewProps.initialAnimateTranslateY)
                                toValue:@(newViewProps.animateTranslateY)
-                                 props:newViewProps];
+                                 props:newViewProps
+                                  loop:YES];
       }
       if (newViewProps.initialAnimateScale != newViewProps.animateScale) {
         [self applyAnimationForKeyPath:@"transform.scale.x"
                           animationKey:kAnimKeyScaleX
                              fromValue:@(newViewProps.initialAnimateScale)
                                toValue:@(newViewProps.animateScale)
-                                 props:newViewProps];
+                                 props:newViewProps
+                                  loop:YES];
         [self applyAnimationForKeyPath:@"transform.scale.y"
                           animationKey:kAnimKeyScaleY
                              fromValue:@(newViewProps.initialAnimateScale)
                                toValue:@(newViewProps.animateScale)
-                                 props:newViewProps];
+                                 props:newViewProps
+                                  loop:YES];
       }
       if (newViewProps.initialAnimateRotate != newViewProps.animateRotate) {
         [self applyAnimationForKeyPath:@"transform.rotation.z"
@@ -194,7 +210,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                                            newViewProps.initialAnimateRotate))
                                toValue:@(degreesToRadians(
                                            newViewProps.animateRotate))
-                                 props:newViewProps];
+                                 props:newViewProps
+                                  loop:YES];
       }
     } else {
       // No initial animation, set target values directly
@@ -221,7 +238,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                       animationKey:kAnimKeyOpacity
                          fromValue:[self presentationValueForKeyPath:@"opacity"]
                            toValue:@(newViewProps.animateOpacity)
-                             props:newViewProps];
+                             props:newViewProps
+                              loop:NO];
     }
     if (oldViewProps.animateTranslateX != newViewProps.animateTranslateX) {
       [self applyAnimationForKeyPath:@"transform.translation.x"
@@ -229,7 +247,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                            fromValue:[self presentationValueForKeyPath:
                                                @"transform.translation.x"]
                              toValue:@(newViewProps.animateTranslateX)
-                               props:newViewProps];
+                               props:newViewProps
+                                loop:NO];
     }
     if (oldViewProps.animateTranslateY != newViewProps.animateTranslateY) {
       [self applyAnimationForKeyPath:@"transform.translation.y"
@@ -237,7 +256,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                            fromValue:[self presentationValueForKeyPath:
                                                @"transform.translation.y"]
                              toValue:@(newViewProps.animateTranslateY)
-                               props:newViewProps];
+                               props:newViewProps
+                                loop:NO];
     }
     if (oldViewProps.animateScale != newViewProps.animateScale) {
       [self applyAnimationForKeyPath:@"transform.scale.x"
@@ -245,13 +265,15 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                            fromValue:[self presentationValueForKeyPath:
                                                @"transform.scale.x"]
                              toValue:@(newViewProps.animateScale)
-                               props:newViewProps];
+                               props:newViewProps
+                                loop:NO];
       [self applyAnimationForKeyPath:@"transform.scale.y"
                         animationKey:kAnimKeyScaleY
                            fromValue:[self presentationValueForKeyPath:
                                                @"transform.scale.y"]
                              toValue:@(newViewProps.animateScale)
-                               props:newViewProps];
+                               props:newViewProps
+                                loop:NO];
     }
     if (oldViewProps.animateRotate != newViewProps.animateRotate) {
       [self applyAnimationForKeyPath:@"transform.rotation.z"
@@ -260,7 +282,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                                                @"transform.rotation.z"]
                              toValue:@(degreesToRadians(
                                          newViewProps.animateRotate))
-                               props:newViewProps];
+                               props:newViewProps
+                                loop:NO];
     }
   }
 
