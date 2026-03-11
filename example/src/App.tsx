@@ -9,7 +9,13 @@ import {
 } from 'react-native';
 import { EaseView } from 'react-native-ease';
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>

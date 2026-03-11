@@ -32,12 +32,16 @@ export function EaseView({
   // Strip animated properties from style at runtime as a safety net
   let cleanStyle = style;
   if (__DEV__ && style) {
-    const flat = StyleSheet.flatten(style as ViewStyle) as Record<string, unknown>;
+    const flat = StyleSheet.flatten(style as ViewStyle) as Record<
+      string,
+      unknown
+    >;
     if (flat && ('opacity' in flat || 'transform' in flat)) {
       console.warn(
         'react-native-ease: Set opacity/transforms in the animate prop, not style. ' +
-          'Animated properties in style will be ignored.'
+          'Animated properties in style will be ignored.',
       );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { opacity: _o, transform: _t, ...remaining } = flat;
       cleanStyle = remaining as EaseViewStyle;
     }
@@ -46,17 +50,17 @@ export function EaseView({
   // Resolve transition config
   const transitionType = transition?.type ?? 'timing';
   const transitionDuration =
-    transition?.type === 'timing' ? (transition.duration ?? 300) : 300;
+    transition?.type === 'timing' ? transition.duration ?? 300 : 300;
   const transitionEasing =
     transition?.type === 'timing'
-      ? (transition.easing ?? 'easeInOut')
+      ? transition.easing ?? 'easeInOut'
       : 'easeInOut';
   const transitionDamping =
-    transition?.type === 'spring' ? (transition.damping ?? 15) : 15;
+    transition?.type === 'spring' ? transition.damping ?? 15 : 15;
   const transitionStiffness =
-    transition?.type === 'spring' ? (transition.stiffness ?? 120) : 120;
+    transition?.type === 'spring' ? transition.stiffness ?? 120 : 120;
   const transitionMass =
-    transition?.type === 'spring' ? (transition.mass ?? 1) : 1;
+    transition?.type === 'spring' ? transition.mass ?? 1 : 1;
 
   return (
     <NativeEaseView

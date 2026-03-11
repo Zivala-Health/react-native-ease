@@ -22,16 +22,18 @@ static inline CGFloat degreesToRadians(CGFloat degrees) {
   return degrees * M_PI / 180.0;
 }
 
-static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing easing) {
+static CAMediaTimingFunction *
+timingFunctionForEasing(EaseViewTransitionEasing easing) {
   switch (easing) {
-    case EaseViewTransitionEasing::Linear:
-      return [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
-    case EaseViewTransitionEasing::EaseIn:
-      return [CAMediaTimingFunction functionWithControlPoints:0.42 :0.0 :1.0 :1.0];
-    case EaseViewTransitionEasing::EaseOut:
-      return [CAMediaTimingFunction functionWithControlPoints:0.0 :0.0 :0.58 :1.0];
-    case EaseViewTransitionEasing::EaseInOut:
-      return [CAMediaTimingFunction functionWithControlPoints:0.42 :0.0 :0.58 :1.0];
+  case EaseViewTransitionEasing::Linear:
+    return
+        [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
+  case EaseViewTransitionEasing::EaseIn:
+    return [CAMediaTimingFunction functionWithControlPoints:0.42:0.0:1.0:1.0];
+  case EaseViewTransitionEasing::EaseOut:
+    return [CAMediaTimingFunction functionWithControlPoints:0.0:0.0:0.58:1.0];
+  case EaseViewTransitionEasing::EaseInOut:
+    return [CAMediaTimingFunction functionWithControlPoints:0.42:0.0:0.58:1.0];
   }
 }
 
@@ -39,13 +41,11 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
   BOOL _isFirstMount;
 }
 
-+ (ComponentDescriptorProvider)componentDescriptorProvider
-{
++ (ComponentDescriptorProvider)componentDescriptorProvider {
   return concreteComponentDescriptorProvider<EaseViewComponentDescriptor>();
 }
 
-- (instancetype)initWithFrame:(CGRect)frame
-{
+- (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const EaseViewProps>();
     _props = defaultProps;
@@ -56,8 +56,7 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
 
 #pragma mark - Animation helpers
 
-- (NSValue *)presentationValueForKeyPath:(NSString *)keyPath
-{
+- (NSValue *)presentationValueForKeyPath:(NSString *)keyPath {
   CALayer *presentationLayer = self.layer.presentationLayer;
   if (presentationLayer) {
     return [presentationLayer valueForKeyPath:keyPath];
@@ -68,10 +67,10 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
 - (CAAnimation *)createAnimationForKeyPath:(NSString *)keyPath
                                  fromValue:(NSValue *)fromValue
                                    toValue:(NSValue *)toValue
-                                     props:(const EaseViewProps &)props
-{
+                                     props:(const EaseViewProps &)props {
   if (props.transitionType == EaseViewTransitionType::Spring) {
-    CASpringAnimation *spring = [CASpringAnimation animationWithKeyPath:keyPath];
+    CASpringAnimation *spring =
+        [CASpringAnimation animationWithKeyPath:keyPath];
     spring.fromValue = fromValue;
     spring.toValue = toValue;
     spring.damping = props.transitionDamping;
@@ -98,8 +97,7 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
                     animationKey:(NSString *)animationKey
                        fromValue:(NSValue *)fromValue
                          toValue:(NSValue *)toValue
-                           props:(const EaseViewProps &)props
-{
+                           props:(const EaseViewProps &)props {
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   [self.layer setValue:toValue forKeyPath:keyPath];
@@ -112,8 +110,7 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
   [self.layer addAnimation:animation forKey:animationKey];
 }
 
-- (void)setModelValue:(NSValue *)value forKeyPath:(NSString *)keyPath
-{
+- (void)setModelValue:(NSValue *)value forKeyPath:(NSString *)keyPath {
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   [self.layer setValue:value forKeyPath:keyPath];
@@ -122,28 +119,37 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
 
 #pragma mark - Props update
 
-- (void)updateProps:(const Props::Shared &)props oldProps:(const Props::Shared &)oldProps
-{
-  const auto &newViewProps = *std::static_pointer_cast<const EaseViewProps>(props);
+- (void)updateProps:(const Props::Shared &)props
+           oldProps:(const Props::Shared &)oldProps {
+  const auto &newViewProps =
+      *std::static_pointer_cast<const EaseViewProps>(props);
 
   if (_isFirstMount) {
     _isFirstMount = NO;
 
     BOOL hasInitialAnimation =
-      newViewProps.initialAnimateOpacity != newViewProps.animateOpacity ||
-      newViewProps.initialAnimateTranslateX != newViewProps.animateTranslateX ||
-      newViewProps.initialAnimateTranslateY != newViewProps.animateTranslateY ||
-      newViewProps.initialAnimateScale != newViewProps.animateScale ||
-      newViewProps.initialAnimateRotate != newViewProps.animateRotate;
+        newViewProps.initialAnimateOpacity != newViewProps.animateOpacity ||
+        newViewProps.initialAnimateTranslateX !=
+            newViewProps.animateTranslateX ||
+        newViewProps.initialAnimateTranslateY !=
+            newViewProps.animateTranslateY ||
+        newViewProps.initialAnimateScale != newViewProps.animateScale ||
+        newViewProps.initialAnimateRotate != newViewProps.animateRotate;
 
     if (hasInitialAnimation) {
       // Set initial values immediately
-      [self setModelValue:@(newViewProps.initialAnimateOpacity) forKeyPath:@"opacity"];
-      [self setModelValue:@(newViewProps.initialAnimateTranslateX) forKeyPath:@"transform.translation.x"];
-      [self setModelValue:@(newViewProps.initialAnimateTranslateY) forKeyPath:@"transform.translation.y"];
-      [self setModelValue:@(newViewProps.initialAnimateScale) forKeyPath:@"transform.scale.x"];
-      [self setModelValue:@(newViewProps.initialAnimateScale) forKeyPath:@"transform.scale.y"];
-      [self setModelValue:@(degreesToRadians(newViewProps.initialAnimateRotate)) forKeyPath:@"transform.rotation.z"];
+      [self setModelValue:@(newViewProps.initialAnimateOpacity)
+               forKeyPath:@"opacity"];
+      [self setModelValue:@(newViewProps.initialAnimateTranslateX)
+               forKeyPath:@"transform.translation.x"];
+      [self setModelValue:@(newViewProps.initialAnimateTranslateY)
+               forKeyPath:@"transform.translation.y"];
+      [self setModelValue:@(newViewProps.initialAnimateScale)
+               forKeyPath:@"transform.scale.x"];
+      [self setModelValue:@(newViewProps.initialAnimateScale)
+               forKeyPath:@"transform.scale.y"];
+      [self setModelValue:@(degreesToRadians(newViewProps.initialAnimateRotate))
+               forKeyPath:@"transform.rotation.z"];
 
       // Animate from initial to target for properties that differ
       if (newViewProps.initialAnimateOpacity != newViewProps.animateOpacity) {
@@ -153,14 +159,16 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
                                toValue:@(newViewProps.animateOpacity)
                                  props:newViewProps];
       }
-      if (newViewProps.initialAnimateTranslateX != newViewProps.animateTranslateX) {
+      if (newViewProps.initialAnimateTranslateX !=
+          newViewProps.animateTranslateX) {
         [self applyAnimationForKeyPath:@"transform.translation.x"
                           animationKey:kAnimKeyTranslateX
                              fromValue:@(newViewProps.initialAnimateTranslateX)
                                toValue:@(newViewProps.animateTranslateX)
                                  props:newViewProps];
       }
-      if (newViewProps.initialAnimateTranslateY != newViewProps.animateTranslateY) {
+      if (newViewProps.initialAnimateTranslateY !=
+          newViewProps.animateTranslateY) {
         [self applyAnimationForKeyPath:@"transform.translation.y"
                           animationKey:kAnimKeyTranslateY
                              fromValue:@(newViewProps.initialAnimateTranslateY)
@@ -182,61 +190,76 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
       if (newViewProps.initialAnimateRotate != newViewProps.animateRotate) {
         [self applyAnimationForKeyPath:@"transform.rotation.z"
                           animationKey:kAnimKeyRotate
-                             fromValue:@(degreesToRadians(newViewProps.initialAnimateRotate))
-                               toValue:@(degreesToRadians(newViewProps.animateRotate))
+                             fromValue:@(degreesToRadians(
+                                           newViewProps.initialAnimateRotate))
+                               toValue:@(degreesToRadians(
+                                           newViewProps.animateRotate))
                                  props:newViewProps];
       }
     } else {
       // No initial animation, set target values directly
       [self setModelValue:@(newViewProps.animateOpacity) forKeyPath:@"opacity"];
-      [self setModelValue:@(newViewProps.animateTranslateX) forKeyPath:@"transform.translation.x"];
-      [self setModelValue:@(newViewProps.animateTranslateY) forKeyPath:@"transform.translation.y"];
-      [self setModelValue:@(newViewProps.animateScale) forKeyPath:@"transform.scale.x"];
-      [self setModelValue:@(newViewProps.animateScale) forKeyPath:@"transform.scale.y"];
-      [self setModelValue:@(degreesToRadians(newViewProps.animateRotate)) forKeyPath:@"transform.rotation.z"];
+      [self setModelValue:@(newViewProps.animateTranslateX)
+               forKeyPath:@"transform.translation.x"];
+      [self setModelValue:@(newViewProps.animateTranslateY)
+               forKeyPath:@"transform.translation.y"];
+      [self setModelValue:@(newViewProps.animateScale)
+               forKeyPath:@"transform.scale.x"];
+      [self setModelValue:@(newViewProps.animateScale)
+               forKeyPath:@"transform.scale.y"];
+      [self setModelValue:@(degreesToRadians(newViewProps.animateRotate))
+               forKeyPath:@"transform.rotation.z"];
     }
   } else {
     // Subsequent updates: animate changed properties
-    const auto &oldViewProps = *std::static_pointer_cast<const EaseViewProps>(oldProps);
+    const auto &oldViewProps =
+        *std::static_pointer_cast<const EaseViewProps>(oldProps);
 
     if (oldViewProps.animateOpacity != newViewProps.animateOpacity) {
-      [self applyAnimationForKeyPath:@"opacity"
-                        animationKey:kAnimKeyOpacity
-                           fromValue:[self presentationValueForKeyPath:@"opacity"]
-                             toValue:@(newViewProps.animateOpacity)
-                               props:newViewProps];
+      [self
+          applyAnimationForKeyPath:@"opacity"
+                      animationKey:kAnimKeyOpacity
+                         fromValue:[self presentationValueForKeyPath:@"opacity"]
+                           toValue:@(newViewProps.animateOpacity)
+                             props:newViewProps];
     }
     if (oldViewProps.animateTranslateX != newViewProps.animateTranslateX) {
       [self applyAnimationForKeyPath:@"transform.translation.x"
                         animationKey:kAnimKeyTranslateX
-                           fromValue:[self presentationValueForKeyPath:@"transform.translation.x"]
+                           fromValue:[self presentationValueForKeyPath:
+                                               @"transform.translation.x"]
                              toValue:@(newViewProps.animateTranslateX)
                                props:newViewProps];
     }
     if (oldViewProps.animateTranslateY != newViewProps.animateTranslateY) {
       [self applyAnimationForKeyPath:@"transform.translation.y"
                         animationKey:kAnimKeyTranslateY
-                           fromValue:[self presentationValueForKeyPath:@"transform.translation.y"]
+                           fromValue:[self presentationValueForKeyPath:
+                                               @"transform.translation.y"]
                              toValue:@(newViewProps.animateTranslateY)
                                props:newViewProps];
     }
     if (oldViewProps.animateScale != newViewProps.animateScale) {
       [self applyAnimationForKeyPath:@"transform.scale.x"
                         animationKey:kAnimKeyScaleX
-                           fromValue:[self presentationValueForKeyPath:@"transform.scale.x"]
+                           fromValue:[self presentationValueForKeyPath:
+                                               @"transform.scale.x"]
                              toValue:@(newViewProps.animateScale)
                                props:newViewProps];
       [self applyAnimationForKeyPath:@"transform.scale.y"
                         animationKey:kAnimKeyScaleY
-                           fromValue:[self presentationValueForKeyPath:@"transform.scale.y"]
+                           fromValue:[self presentationValueForKeyPath:
+                                               @"transform.scale.y"]
                              toValue:@(newViewProps.animateScale)
                                props:newViewProps];
     }
     if (oldViewProps.animateRotate != newViewProps.animateRotate) {
       [self applyAnimationForKeyPath:@"transform.rotation.z"
                         animationKey:kAnimKeyRotate
-                           fromValue:[self presentationValueForKeyPath:@"transform.rotation.z"]
-                             toValue:@(degreesToRadians(newViewProps.animateRotate))
+                           fromValue:[self presentationValueForKeyPath:
+                                               @"transform.rotation.z"]
+                             toValue:@(degreesToRadians(
+                                         newViewProps.animateRotate))
                                props:newViewProps];
     }
   }
@@ -244,8 +267,7 @@ static CAMediaTimingFunction *timingFunctionForEasing(EaseViewTransitionEasing e
   [super updateProps:props oldProps:oldProps];
 }
 
-- (void)prepareForRecycle
-{
+- (void)prepareForRecycle {
   [super prepareForRecycle];
   [self.layer removeAllAnimations];
   _isFirstMount = YES;
