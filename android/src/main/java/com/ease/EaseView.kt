@@ -3,10 +3,8 @@ package com.ease
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
-import android.animation.TimeInterpolator
 import android.content.Context
 import android.view.View
-import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
@@ -20,8 +18,11 @@ class EaseView(context: Context) : ReactViewGroup(context) {
     private var prevOpacity: Float? = null
     private var prevTranslateX: Float? = null
     private var prevTranslateY: Float? = null
-    private var prevScale: Float? = null
+    private var prevScaleX: Float? = null
+    private var prevScaleY: Float? = null
     private var prevRotate: Float? = null
+    private var prevRotateX: Float? = null
+    private var prevRotateY: Float? = null
 
     // --- First mount tracking ---
     private var isFirstMount: Boolean = true
@@ -29,7 +30,7 @@ class EaseView(context: Context) : ReactViewGroup(context) {
     // --- Transition config (set by ViewManager) ---
     var transitionType: String = "timing"
     var transitionDuration: Int = 300
-    var transitionEasing: String = "easeInOut"
+    var transitionEasingBezier: FloatArray = floatArrayOf(0.42f, 0f, 0.58f, 1.0f)
     var transitionDamping: Float = 15.0f
     var transitionStiffness: Float = 120.0f
     var transitionMass: Float = 1.0f
@@ -62,34 +63,46 @@ class EaseView(context: Context) : ReactViewGroup(context) {
     var initialAnimateOpacity: Float = 1.0f
     var initialAnimateTranslateX: Float = 0.0f
     var initialAnimateTranslateY: Float = 0.0f
-    var initialAnimateScale: Float = 1.0f
+    var initialAnimateScaleX: Float = 1.0f
+    var initialAnimateScaleY: Float = 1.0f
     var initialAnimateRotate: Float = 0.0f
+    var initialAnimateRotateX: Float = 0.0f
+    var initialAnimateRotateY: Float = 0.0f
 
     // --- Pending animate values (buffered per-view, applied in onAfterUpdateTransaction) ---
     var pendingOpacity: Float = 1.0f
     var pendingTranslateX: Float = 0.0f
     var pendingTranslateY: Float = 0.0f
-    var pendingScale: Float = 1.0f
+    var pendingScaleX: Float = 1.0f
+    var pendingScaleY: Float = 1.0f
     var pendingRotate: Float = 0.0f
+    var pendingRotateX: Float = 0.0f
+    var pendingRotateY: Float = 0.0f
 
     // --- Running animations ---
     private val runningAnimators = mutableMapOf<String, ObjectAnimator>()
     private val runningSpringAnimations = mutableMapOf<DynamicAnimation.ViewProperty, SpringAnimation>()
 
+    // --- Animated properties bitmask (set by ViewManager) ---
+    var animatedProperties: Int = 0
+
     // --- Easing interpolators (lazy singletons shared across all instances) ---
     companion object {
-        private val INTERPOLATOR_EASE_IN by lazy { PathInterpolator(0.42f, 0f, 1.0f, 1.0f) }
-        private val INTERPOLATOR_EASE_OUT by lazy { PathInterpolator(0.0f, 0.0f, 0.58f, 1.0f) }
-        private val INTERPOLATOR_EASE_IN_OUT by lazy { PathInterpolator(0.42f, 0f, 0.58f, 1.0f) }
-        private val INTERPOLATOR_LINEAR by lazy { LinearInterpolator() }
+        // Bitmask flags — must match JS constants
+        const val MASK_OPACITY = 1 shl 0
+        const val MASK_TRANSLATE_X = 1 shl 1
+        const val MASK_TRANSLATE_Y = 1 shl 2
+        const val MASK_SCALE_X = 1 shl 3
+        const val MASK_SCALE_Y = 1 shl 4
+        const val MASK_ROTATE = 1 shl 5
+        const val MASK_ROTATE_X = 1 shl 6
+        const val MASK_ROTATE_Y = 1 shl 7
+
     }
 
-    private fun getInterpolator(easing: String): TimeInterpolator = when (easing) {
-        "easeIn" -> INTERPOLATOR_EASE_IN
-        "easeOut" -> INTERPOLATOR_EASE_OUT
-        "easeInOut" -> INTERPOLATOR_EASE_IN_OUT
-        "linear" -> INTERPOLATOR_LINEAR
-        else -> INTERPOLATOR_EASE_IN_OUT
+    init {
+        // Set camera distance for 3D perspective rotations (rotateX/rotateY)
+        cameraDistance = resources.displayMetrics.density * 850f
     }
 
     // --- Hardware layer management ---
@@ -127,15 +140,18 @@ class EaseView(context: Context) : ReactViewGroup(context) {
     }
 
     fun applyPendingAnimateValues() {
-        applyAnimateValues(pendingOpacity, pendingTranslateX, pendingTranslateY, pendingScale, pendingRotate)
+        applyAnimateValues(pendingOpacity, pendingTranslateX, pendingTranslateY, pendingScaleX, pendingScaleY, pendingRotate, pendingRotateX, pendingRotateY)
     }
 
     private fun applyAnimateValues(
         opacity: Float,
         translateX: Float,
         translateY: Float,
-        scale: Float,
-        rotate: Float
+        scaleX: Float,
+        scaleY: Float,
+        rotate: Float,
+        rotateX: Float,
+        rotateY: Float
     ) {
         if (pendingBatchAnimationCount > 0) {
             onTransitionEnd?.invoke(false)
@@ -145,97 +161,132 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         pendingBatchAnimationCount = 0
         anyInterrupted = false
 
+        // Bitmask: which properties are animated. Non-animated = let style handle.
+        val mask = animatedProperties
+
         if (isFirstMount) {
             isFirstMount = false
 
             val hasInitialAnimation =
-                initialAnimateOpacity != opacity ||
-                initialAnimateTranslateX != translateX ||
-                initialAnimateTranslateY != translateY ||
-                initialAnimateScale != scale ||
-                initialAnimateRotate != rotate
+                (mask and MASK_OPACITY != 0 && initialAnimateOpacity != opacity) ||
+                (mask and MASK_TRANSLATE_X != 0 && initialAnimateTranslateX != translateX) ||
+                (mask and MASK_TRANSLATE_Y != 0 && initialAnimateTranslateY != translateY) ||
+                (mask and MASK_SCALE_X != 0 && initialAnimateScaleX != scaleX) ||
+                (mask and MASK_SCALE_Y != 0 && initialAnimateScaleY != scaleY) ||
+                (mask and MASK_ROTATE != 0 && initialAnimateRotate != rotate) ||
+                (mask and MASK_ROTATE_X != 0 && initialAnimateRotateX != rotateX) ||
+                (mask and MASK_ROTATE_Y != 0 && initialAnimateRotateY != rotateY)
 
             if (hasInitialAnimation) {
-                this.alpha = initialAnimateOpacity
-                this.translationX = initialAnimateTranslateX
-                this.translationY = initialAnimateTranslateY
-                this.scaleX = initialAnimateScale
-                this.scaleY = initialAnimateScale
-                this.rotation = initialAnimateRotate
+                // Set initial values for animated properties
+                if (mask and MASK_OPACITY != 0) this.alpha = initialAnimateOpacity
+                if (mask and MASK_TRANSLATE_X != 0) this.translationX = initialAnimateTranslateX
+                if (mask and MASK_TRANSLATE_Y != 0) this.translationY = initialAnimateTranslateY
+                if (mask and MASK_SCALE_X != 0) this.scaleX = initialAnimateScaleX
+                if (mask and MASK_SCALE_Y != 0) this.scaleY = initialAnimateScaleY
+                if (mask and MASK_ROTATE != 0) this.rotation = initialAnimateRotate
+                if (mask and MASK_ROTATE_X != 0) this.rotationX = initialAnimateRotateX
+                if (mask and MASK_ROTATE_Y != 0) this.rotationY = initialAnimateRotateY
 
-                if (initialAnimateOpacity != opacity) {
+                // Animate properties that differ from initial to target
+                if (mask and MASK_OPACITY != 0 && initialAnimateOpacity != opacity) {
                     animateProperty("alpha", DynamicAnimation.ALPHA, initialAnimateOpacity, opacity, loop = true)
-                } else {
-                    this.alpha = opacity
                 }
-
-                if (initialAnimateTranslateX != translateX) {
+                if (mask and MASK_TRANSLATE_X != 0 && initialAnimateTranslateX != translateX) {
                     animateProperty("translationX", DynamicAnimation.TRANSLATION_X, initialAnimateTranslateX, translateX, loop = true)
-                } else {
-                    this.translationX = translateX
                 }
-
-                if (initialAnimateTranslateY != translateY) {
+                if (mask and MASK_TRANSLATE_Y != 0 && initialAnimateTranslateY != translateY) {
                     animateProperty("translationY", DynamicAnimation.TRANSLATION_Y, initialAnimateTranslateY, translateY, loop = true)
-                } else {
-                    this.translationY = translateY
                 }
-
-                if (initialAnimateScale != scale) {
-                    animateProperty("scaleX", DynamicAnimation.SCALE_X, initialAnimateScale, scale, loop = true)
-                    animateProperty("scaleY", DynamicAnimation.SCALE_Y, initialAnimateScale, scale, loop = true)
-                } else {
-                    this.scaleX = scale
-                    this.scaleY = scale
+                if (mask and MASK_SCALE_X != 0 && initialAnimateScaleX != scaleX) {
+                    animateProperty("scaleX", DynamicAnimation.SCALE_X, initialAnimateScaleX, scaleX, loop = true)
                 }
-
-                if (initialAnimateRotate != rotate) {
+                if (mask and MASK_SCALE_Y != 0 && initialAnimateScaleY != scaleY) {
+                    animateProperty("scaleY", DynamicAnimation.SCALE_Y, initialAnimateScaleY, scaleY, loop = true)
+                }
+                if (mask and MASK_ROTATE != 0 && initialAnimateRotate != rotate) {
                     animateProperty("rotation", DynamicAnimation.ROTATION, initialAnimateRotate, rotate, loop = true)
-                } else {
-                    this.rotation = rotate
+                }
+                if (mask and MASK_ROTATE_X != 0 && initialAnimateRotateX != rotateX) {
+                    animateProperty("rotationX", DynamicAnimation.ROTATION_X, initialAnimateRotateX, rotateX, loop = true)
+                }
+                if (mask and MASK_ROTATE_Y != 0 && initialAnimateRotateY != rotateY) {
+                    animateProperty("rotationY", DynamicAnimation.ROTATION_Y, initialAnimateRotateY, rotateY, loop = true)
                 }
             } else {
-                this.alpha = opacity
-                this.translationX = translateX
-                this.translationY = translateY
-                this.scaleX = scale
-                this.scaleY = scale
-                this.rotation = rotate
+                // No initial animation — set target values directly (skip non-animated)
+                if (mask and MASK_OPACITY != 0) this.alpha = opacity
+                if (mask and MASK_TRANSLATE_X != 0) this.translationX = translateX
+                if (mask and MASK_TRANSLATE_Y != 0) this.translationY = translateY
+                if (mask and MASK_SCALE_X != 0) this.scaleX = scaleX
+                if (mask and MASK_SCALE_Y != 0) this.scaleY = scaleY
+                if (mask and MASK_ROTATE != 0) this.rotation = rotate
+                if (mask and MASK_ROTATE_X != 0) this.rotationX = rotateX
+                if (mask and MASK_ROTATE_Y != 0) this.rotationY = rotateY
             }
+        } else if (transitionType == "none") {
+            // No transition — set values immediately, cancel running animations
+            cancelAllAnimations()
+            if (mask and MASK_OPACITY != 0) this.alpha = opacity
+            if (mask and MASK_TRANSLATE_X != 0) this.translationX = translateX
+            if (mask and MASK_TRANSLATE_Y != 0) this.translationY = translateY
+            if (mask and MASK_SCALE_X != 0) this.scaleX = scaleX
+            if (mask and MASK_SCALE_Y != 0) this.scaleY = scaleY
+            if (mask and MASK_ROTATE != 0) this.rotation = rotate
+            if (mask and MASK_ROTATE_X != 0) this.rotationX = rotateX
+            if (mask and MASK_ROTATE_Y != 0) this.rotationY = rotateY
+            onTransitionEnd?.invoke(true)
         } else {
-            if (prevOpacity != null && prevOpacity != opacity) {
+            // Subsequent updates: animate changed properties (skip non-animated)
+            if (prevOpacity != null && mask and MASK_OPACITY != 0 && prevOpacity != opacity) {
                 val from = getCurrentValue("alpha")
                 animateProperty("alpha", DynamicAnimation.ALPHA, from, opacity)
             }
 
-            if (prevTranslateX != null && prevTranslateX != translateX) {
+            if (prevTranslateX != null && mask and MASK_TRANSLATE_X != 0 && prevTranslateX != translateX) {
                 val from = getCurrentValue("translationX")
                 animateProperty("translationX", DynamicAnimation.TRANSLATION_X, from, translateX)
             }
 
-            if (prevTranslateY != null && prevTranslateY != translateY) {
+            if (prevTranslateY != null && mask and MASK_TRANSLATE_Y != 0 && prevTranslateY != translateY) {
                 val from = getCurrentValue("translationY")
                 animateProperty("translationY", DynamicAnimation.TRANSLATION_Y, from, translateY)
             }
 
-            if (prevScale != null && prevScale != scale) {
-                val fromX = getCurrentValue("scaleX")
-                val fromY = getCurrentValue("scaleY")
-                animateProperty("scaleX", DynamicAnimation.SCALE_X, fromX, scale)
-                animateProperty("scaleY", DynamicAnimation.SCALE_Y, fromY, scale)
+            if (prevScaleX != null && mask and MASK_SCALE_X != 0 && prevScaleX != scaleX) {
+                val from = getCurrentValue("scaleX")
+                animateProperty("scaleX", DynamicAnimation.SCALE_X, from, scaleX)
             }
 
-            if (prevRotate != null && prevRotate != rotate) {
+            if (prevScaleY != null && mask and MASK_SCALE_Y != 0 && prevScaleY != scaleY) {
+                val from = getCurrentValue("scaleY")
+                animateProperty("scaleY", DynamicAnimation.SCALE_Y, from, scaleY)
+            }
+
+            if (prevRotate != null && mask and MASK_ROTATE != 0 && prevRotate != rotate) {
                 val from = getCurrentValue("rotation")
                 animateProperty("rotation", DynamicAnimation.ROTATION, from, rotate)
+            }
+
+            if (prevRotateX != null && mask and MASK_ROTATE_X != 0 && prevRotateX != rotateX) {
+                val from = getCurrentValue("rotationX")
+                animateProperty("rotationX", DynamicAnimation.ROTATION_X, from, rotateX)
+            }
+
+            if (prevRotateY != null && mask and MASK_ROTATE_Y != 0 && prevRotateY != rotateY) {
+                val from = getCurrentValue("rotationY")
+                animateProperty("rotationY", DynamicAnimation.ROTATION_Y, from, rotateY)
             }
         }
 
         prevOpacity = opacity
         prevTranslateX = translateX
         prevTranslateY = translateY
-        prevScale = scale
+        prevScaleX = scaleX
+        prevScaleY = scaleY
         prevRotate = rotate
+        prevRotateX = rotateX
+        prevRotateY = rotateY
     }
 
     private fun getCurrentValue(propertyName: String): Float = when (propertyName) {
@@ -245,6 +296,8 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         "scaleX" -> this.scaleX
         "scaleY" -> this.scaleY
         "rotation" -> this.rotation
+        "rotationX" -> this.rotationX
+        "rotationY" -> this.rotationY
         else -> 0f
     }
 
@@ -271,7 +324,10 @@ class EaseView(context: Context) : ReactViewGroup(context) {
 
         val animator = ObjectAnimator.ofFloat(this, propertyName, fromValue, toValue).apply {
             duration = transitionDuration.toLong()
-            interpolator = getInterpolator(transitionEasing)
+            interpolator = PathInterpolator(
+                transitionEasingBezier[0], transitionEasingBezier[1],
+                transitionEasingBezier[2], transitionEasingBezier[3]
+            )
             if (loop && transitionLoop != "none") {
                 repeatCount = ObjectAnimator.INFINITE
                 repeatMode = if (transitionLoop == "reverse") {
@@ -348,6 +404,19 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         spring.start()
     }
 
+    private fun cancelAllAnimations() {
+        for (animator in runningAnimators.values) {
+            animator.cancel()
+        }
+        runningAnimators.clear()
+        for (spring in runningSpringAnimations.values) {
+            if (spring.isRunning) {
+                spring.cancel()
+            }
+        }
+        runningSpringAnimations.clear()
+    }
+
     private fun cancelTimingForViewProperty(viewProperty: DynamicAnimation.ViewProperty) {
         val propertyName = when (viewProperty) {
             DynamicAnimation.ALPHA -> "alpha"
@@ -356,6 +425,8 @@ class EaseView(context: Context) : ReactViewGroup(context) {
             DynamicAnimation.SCALE_X -> "scaleX"
             DynamicAnimation.SCALE_Y -> "scaleY"
             DynamicAnimation.ROTATION -> "rotation"
+            DynamicAnimation.ROTATION_X -> "rotationX"
+            DynamicAnimation.ROTATION_Y -> "rotationY"
             else -> return
         }
         runningAnimators[propertyName]?.cancel()
@@ -370,6 +441,8 @@ class EaseView(context: Context) : ReactViewGroup(context) {
             "scaleX" -> DynamicAnimation.SCALE_X
             "scaleY" -> DynamicAnimation.SCALE_Y
             "rotation" -> DynamicAnimation.ROTATION
+            "rotationX" -> DynamicAnimation.ROTATION_X
+            "rotationY" -> DynamicAnimation.ROTATION_Y
             else -> return
         }
         runningSpringAnimations[viewProperty]?.let { spring ->
@@ -401,8 +474,20 @@ class EaseView(context: Context) : ReactViewGroup(context) {
         prevOpacity = null
         prevTranslateX = null
         prevTranslateY = null
-        prevScale = null
+        prevScaleX = null
+        prevScaleY = null
         prevRotate = null
+        prevRotateX = null
+        prevRotateY = null
+
+        this.alpha = 1f
+        this.translationX = 0f
+        this.translationY = 0f
+        this.scaleX = 1f
+        this.scaleY = 1f
+        this.rotation = 0f
+        this.rotationX = 0f
+        this.rotationY = 0f
 
         isFirstMount = true
         transitionLoop = "none"

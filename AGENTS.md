@@ -50,7 +50,8 @@ transition={{ type: 'spring', damping: 10 }}  →  transitionType="spring", tran
 3. Add default to `IDENTITY` in `src/EaseView.tsx` and pass the flat props to `NativeEaseView`
 4. **iOS:** Handle the new property in `updateProps:` — diff old/new, read presentation value, create animation
 5. **Android:** Add `pending<Prop>` field, `@ReactProp` setter in `EaseViewManager.kt`, and handle in `applyAnimateValues()`
-6. Add tests and update README
+6. **Recycle:** Reset the new property to its identity value in `prepareForRecycle` (iOS) and `cleanup()` (Android). Fabric recycles views — any property not reset will leak stale values to the next user of the view.
+7. Add tests and update README
 
 ## Development Commands
 
@@ -99,7 +100,8 @@ Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, etc.
 
 ## Key Gotchas
 
-- **`style` must not contain `opacity` or `transform`** — these are controlled by the `animate` prop. The component warns in dev mode if you do this.
+- **Style/animate conflict:** `style` can contain any `ViewStyle` property. If a property appears in both `style` and `animate`, the animated value wins and the style value is stripped. A dev warning is logged. Properties like `opacity` in `style` work fine when not in `animate` — the bitmask tells native which properties are animated vs style-managed.
+- **View recycling:** Fabric recycles native views. `prepareForRecycle` (iOS) and `cleanup()` (Android) must reset ALL mutable view properties (opacity, translation, scale, rotation) to identity. Missing a reset causes stale values to leak across hot reloads or view reuse.
 - **translateX/translateY are in DIPs (density-independent pixels) on the JS side.** Android `EaseViewManager` converts to pixels via `PixelUtil.toPixelFromDIP()`. iOS codegen handles this automatically.
 - **iOS uses `CALayer` key-path animations** (`transform.scale.x`, `transform.translation.x`, etc.), not the `transform` property directly. This means `anchorPoint` controls the pivot for scale/rotation.
 - **iOS `anchorPoint` changes shift visual position.** The `updateLayoutMetrics:oldLayoutMetrics:` override compensates for this — don't change it without understanding the position math.

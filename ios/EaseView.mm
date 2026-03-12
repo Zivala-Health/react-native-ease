@@ -13,30 +13,41 @@ using namespace facebook::react;
 
 // Animation key constants
 static NSString *const kAnimKeyOpacity = @"ease_opacity";
-static NSString *const kAnimKeyTranslateX = @"ease_translateX";
-static NSString *const kAnimKeyTranslateY = @"ease_translateY";
-static NSString *const kAnimKeyScaleX = @"ease_scaleX";
-static NSString *const kAnimKeyScaleY = @"ease_scaleY";
-static NSString *const kAnimKeyRotate = @"ease_rotate";
+static NSString *const kAnimKeyTransform = @"ease_transform";
 
 static inline CGFloat degreesToRadians(CGFloat degrees) {
   return degrees * M_PI / 180.0;
 }
 
-static CAMediaTimingFunction *
-timingFunctionForEasing(EaseViewTransitionEasing easing) {
-  switch (easing) {
-  case EaseViewTransitionEasing::Linear:
-    return
-        [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
-  case EaseViewTransitionEasing::EaseIn:
-    return [CAMediaTimingFunction functionWithControlPoints:0.42:0.0:1.0:1.0];
-  case EaseViewTransitionEasing::EaseOut:
-    return [CAMediaTimingFunction functionWithControlPoints:0.0:0.0:0.58:1.0];
-  case EaseViewTransitionEasing::EaseInOut:
-    return [CAMediaTimingFunction functionWithControlPoints:0.42:0.0:0.58:1.0];
-  }
+// Compose a full CATransform3D from individual animate values.
+// Order: Scale → RotateY → RotateX → RotateZ → Translate.
+// Perspective (m34) is always included — invisible when no 3D rotation.
+static CATransform3D composeTransform(CGFloat scaleX, CGFloat scaleY,
+                                      CGFloat translateX, CGFloat translateY,
+                                      CGFloat rotateZ, CGFloat rotateX,
+                                      CGFloat rotateY) {
+  CATransform3D t = CATransform3DIdentity;
+  t.m34 = -1.0 / 850.0;
+  t = CATransform3DTranslate(t, translateX, translateY, 0);
+  t = CATransform3DRotate(t, rotateZ, 0, 0, 1);
+  t = CATransform3DRotate(t, rotateX, 1, 0, 0);
+  t = CATransform3DRotate(t, rotateY, 0, 1, 0);
+  t = CATransform3DScale(t, scaleX, scaleY, 1);
+  return t;
 }
+
+// Bitmask flags — must match JS constants
+static const int kMaskOpacity = 1 << 0;
+static const int kMaskTranslateX = 1 << 1;
+static const int kMaskTranslateY = 1 << 2;
+static const int kMaskScaleX = 1 << 3;
+static const int kMaskScaleY = 1 << 4;
+static const int kMaskRotate = 1 << 5;
+static const int kMaskRotateX = 1 << 6;
+static const int kMaskRotateY = 1 << 7;
+static const int kMaskAnyTransform = kMaskTranslateX | kMaskTranslateY |
+                                     kMaskScaleX | kMaskScaleY | kMaskRotate |
+                                     kMaskRotateX | kMaskRotateY;
 
 @implementation EaseView {
   BOOL _isFirstMount;
@@ -103,6 +114,11 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
 
 #pragma mark - Animation helpers
 
+- (CATransform3D)presentationTransform {
+  CALayer *pl = self.layer.presentationLayer;
+  return pl ? pl.transform : self.layer.transform;
+}
+
 - (NSValue *)presentationValueForKeyPath:(NSString *)keyPath {
   CALayer *presentationLayer = self.layer.presentationLayer;
   if (presentationLayer) {
@@ -132,7 +148,18 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
     timing.fromValue = fromValue;
     timing.toValue = toValue;
     timing.duration = props.transitionDuration / 1000.0;
-    timing.timingFunction = timingFunctionForEasing(props.transitionEasing);
+    {
+      const auto &b = props.transitionEasingBezier;
+      if (b.size() == 4) {
+        timing.timingFunction = [CAMediaTimingFunction
+            functionWithControlPoints:(float)b[0]:(float)b[1]:(float)b[2
+        ]:(float)b[3]];
+      } else {
+        // Fallback: easeInOut
+        timing.timingFunction =
+            [CAMediaTimingFunction functionWithControlPoints:0.42:0.0:0.58:1.0];
+      }
+    }
     if (loop) {
       if (props.transitionLoop == EaseViewTransitionLoop::Repeat) {
         timing.repeatCount = HUGE_VALF;
@@ -151,21 +178,34 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                          toValue:(NSValue *)toValue
                            props:(const EaseViewProps &)props
                             loop:(BOOL)loop {
-  [self.layer setValue:toValue forKeyPath:keyPath];
+  _pendingAnimationCount++;
 
   CAAnimation *animation = [self createAnimationForKeyPath:keyPath
                                                  fromValue:fromValue
                                                    toValue:toValue
                                                      props:props
                                                       loop:loop];
-  _pendingAnimationCount++;
   [animation setValue:@(_animationBatchId) forKey:@"easeBatchId"];
   animation.delegate = self;
   [self.layer addAnimation:animation forKey:animationKey];
 }
 
-- (void)setModelValue:(NSValue *)value forKeyPath:(NSString *)keyPath {
-  [self.layer setValue:value forKeyPath:keyPath];
+/// Compose a CATransform3D from EaseViewProps target values.
+- (CATransform3D)targetTransformFromProps:(const EaseViewProps &)p {
+  return composeTransform(
+      p.animateScaleX, p.animateScaleY, p.animateTranslateX,
+      p.animateTranslateY, degreesToRadians(p.animateRotate),
+      degreesToRadians(p.animateRotateX), degreesToRadians(p.animateRotateY));
+}
+
+/// Compose a CATransform3D from EaseViewProps initial values.
+- (CATransform3D)initialTransformFromProps:(const EaseViewProps &)p {
+  return composeTransform(p.initialAnimateScaleX, p.initialAnimateScaleY,
+                          p.initialAnimateTranslateX,
+                          p.initialAnimateTranslateY,
+                          degreesToRadians(p.initialAnimateRotate),
+                          degreesToRadians(p.initialAnimateRotateX),
+                          degreesToRadians(p.initialAnimateRotateY));
 }
 
 #pragma mark - Props update
@@ -197,35 +237,38 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
   _pendingAnimationCount = 0;
   _anyInterrupted = NO;
 
+  // Bitmask: which properties are animated. Non-animated = let style handle.
+  int mask = newViewProps.animatedProperties;
+  BOOL hasTransform = (mask & kMaskAnyTransform) != 0;
+
   if (_isFirstMount) {
     _isFirstMount = NO;
 
-    BOOL hasInitialAnimation =
-        newViewProps.initialAnimateOpacity != newViewProps.animateOpacity ||
-        newViewProps.initialAnimateTranslateX !=
-            newViewProps.animateTranslateX ||
-        newViewProps.initialAnimateTranslateY !=
-            newViewProps.animateTranslateY ||
-        newViewProps.initialAnimateScale != newViewProps.animateScale ||
-        newViewProps.initialAnimateRotate != newViewProps.animateRotate;
+    // Check if initial differs from target for any masked property
+    BOOL hasInitialOpacity =
+        (mask & kMaskOpacity) &&
+        newViewProps.initialAnimateOpacity != newViewProps.animateOpacity;
 
-    if (hasInitialAnimation) {
-      // Set initial values immediately
-      [self setModelValue:@(newViewProps.initialAnimateOpacity)
-               forKeyPath:@"opacity"];
-      [self setModelValue:@(newViewProps.initialAnimateTranslateX)
-               forKeyPath:@"transform.translation.x"];
-      [self setModelValue:@(newViewProps.initialAnimateTranslateY)
-               forKeyPath:@"transform.translation.y"];
-      [self setModelValue:@(newViewProps.initialAnimateScale)
-               forKeyPath:@"transform.scale.x"];
-      [self setModelValue:@(newViewProps.initialAnimateScale)
-               forKeyPath:@"transform.scale.y"];
-      [self setModelValue:@(degreesToRadians(newViewProps.initialAnimateRotate))
-               forKeyPath:@"transform.rotation.z"];
+    BOOL hasInitialTransform = NO;
+    CATransform3D initialT = CATransform3DIdentity;
+    CATransform3D targetT = CATransform3DIdentity;
 
-      // Animate from initial to target for properties that differ
-      if (newViewProps.initialAnimateOpacity != newViewProps.animateOpacity) {
+    if (hasTransform) {
+      initialT = [self initialTransformFromProps:newViewProps];
+      targetT = [self targetTransformFromProps:newViewProps];
+      hasInitialTransform = !CATransform3DEqualToTransform(initialT, targetT);
+    }
+
+    if (hasInitialOpacity || hasInitialTransform) {
+      // Set initial values
+      if (mask & kMaskOpacity)
+        self.layer.opacity = newViewProps.initialAnimateOpacity;
+      if (hasTransform)
+        self.layer.transform = initialT;
+
+      // Animate from initial to target
+      if (hasInitialOpacity) {
+        self.layer.opacity = newViewProps.animateOpacity;
         [self applyAnimationForKeyPath:@"opacity"
                           animationKey:kAnimKeyOpacity
                              fromValue:@(newViewProps.initialAnimateOpacity)
@@ -233,68 +276,44 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                                  props:newViewProps
                                   loop:YES];
       }
-      if (newViewProps.initialAnimateTranslateX !=
-          newViewProps.animateTranslateX) {
-        [self applyAnimationForKeyPath:@"transform.translation.x"
-                          animationKey:kAnimKeyTranslateX
-                             fromValue:@(newViewProps.initialAnimateTranslateX)
-                               toValue:@(newViewProps.animateTranslateX)
-                                 props:newViewProps
-                                  loop:YES];
-      }
-      if (newViewProps.initialAnimateTranslateY !=
-          newViewProps.animateTranslateY) {
-        [self applyAnimationForKeyPath:@"transform.translation.y"
-                          animationKey:kAnimKeyTranslateY
-                             fromValue:@(newViewProps.initialAnimateTranslateY)
-                               toValue:@(newViewProps.animateTranslateY)
-                                 props:newViewProps
-                                  loop:YES];
-      }
-      if (newViewProps.initialAnimateScale != newViewProps.animateScale) {
-        [self applyAnimationForKeyPath:@"transform.scale.x"
-                          animationKey:kAnimKeyScaleX
-                             fromValue:@(newViewProps.initialAnimateScale)
-                               toValue:@(newViewProps.animateScale)
-                                 props:newViewProps
-                                  loop:YES];
-        [self applyAnimationForKeyPath:@"transform.scale.y"
-                          animationKey:kAnimKeyScaleY
-                             fromValue:@(newViewProps.initialAnimateScale)
-                               toValue:@(newViewProps.animateScale)
-                                 props:newViewProps
-                                  loop:YES];
-      }
-      if (newViewProps.initialAnimateRotate != newViewProps.animateRotate) {
-        [self applyAnimationForKeyPath:@"transform.rotation.z"
-                          animationKey:kAnimKeyRotate
-                             fromValue:@(degreesToRadians(
-                                           newViewProps.initialAnimateRotate))
-                               toValue:@(degreesToRadians(
-                                           newViewProps.animateRotate))
+      if (hasInitialTransform) {
+        self.layer.transform = targetT;
+        [self applyAnimationForKeyPath:@"transform"
+                          animationKey:kAnimKeyTransform
+                             fromValue:[NSValue valueWithCATransform3D:initialT]
+                               toValue:[NSValue valueWithCATransform3D:targetT]
                                  props:newViewProps
                                   loop:YES];
       }
     } else {
-      // No initial animation, set target values directly
-      [self setModelValue:@(newViewProps.animateOpacity) forKeyPath:@"opacity"];
-      [self setModelValue:@(newViewProps.animateTranslateX)
-               forKeyPath:@"transform.translation.x"];
-      [self setModelValue:@(newViewProps.animateTranslateY)
-               forKeyPath:@"transform.translation.y"];
-      [self setModelValue:@(newViewProps.animateScale)
-               forKeyPath:@"transform.scale.x"];
-      [self setModelValue:@(newViewProps.animateScale)
-               forKeyPath:@"transform.scale.y"];
-      [self setModelValue:@(degreesToRadians(newViewProps.animateRotate))
-               forKeyPath:@"transform.rotation.z"];
+      // No initial animation — set target values directly
+      if (mask & kMaskOpacity)
+        self.layer.opacity = newViewProps.animateOpacity;
+      if (hasTransform)
+        self.layer.transform = targetT;
+    }
+  } else if (newViewProps.transitionType == EaseViewTransitionType::None) {
+    // No transition — set values immediately
+    [self.layer removeAllAnimations];
+    if (mask & kMaskOpacity)
+      self.layer.opacity = newViewProps.animateOpacity;
+    if (hasTransform)
+      self.layer.transform = [self targetTransformFromProps:newViewProps];
+    if (_eventEmitter) {
+      auto emitter =
+          std::static_pointer_cast<const EaseViewEventEmitter>(_eventEmitter);
+      emitter->onTransitionEnd(EaseViewEventEmitter::OnTransitionEnd{
+          .finished = true,
+      });
     }
   } else {
     // Subsequent updates: animate changed properties
     const auto &oldViewProps =
         *std::static_pointer_cast<const EaseViewProps>(oldProps);
 
-    if (oldViewProps.animateOpacity != newViewProps.animateOpacity) {
+    if ((mask & kMaskOpacity) &&
+        oldViewProps.animateOpacity != newViewProps.animateOpacity) {
+      self.layer.opacity = newViewProps.animateOpacity;
       [self
           applyAnimationForKeyPath:@"opacity"
                       animationKey:kAnimKeyOpacity
@@ -303,49 +322,29 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
                              props:newViewProps
                               loop:NO];
     }
-    if (oldViewProps.animateTranslateX != newViewProps.animateTranslateX) {
-      [self applyAnimationForKeyPath:@"transform.translation.x"
-                        animationKey:kAnimKeyTranslateX
-                           fromValue:[self presentationValueForKeyPath:
-                                               @"transform.translation.x"]
-                             toValue:@(newViewProps.animateTranslateX)
-                               props:newViewProps
-                                loop:NO];
-    }
-    if (oldViewProps.animateTranslateY != newViewProps.animateTranslateY) {
-      [self applyAnimationForKeyPath:@"transform.translation.y"
-                        animationKey:kAnimKeyTranslateY
-                           fromValue:[self presentationValueForKeyPath:
-                                               @"transform.translation.y"]
-                             toValue:@(newViewProps.animateTranslateY)
-                               props:newViewProps
-                                loop:NO];
-    }
-    if (oldViewProps.animateScale != newViewProps.animateScale) {
-      [self applyAnimationForKeyPath:@"transform.scale.x"
-                        animationKey:kAnimKeyScaleX
-                           fromValue:[self presentationValueForKeyPath:
-                                               @"transform.scale.x"]
-                             toValue:@(newViewProps.animateScale)
-                               props:newViewProps
-                                loop:NO];
-      [self applyAnimationForKeyPath:@"transform.scale.y"
-                        animationKey:kAnimKeyScaleY
-                           fromValue:[self presentationValueForKeyPath:
-                                               @"transform.scale.y"]
-                             toValue:@(newViewProps.animateScale)
-                               props:newViewProps
-                                loop:NO];
-    }
-    if (oldViewProps.animateRotate != newViewProps.animateRotate) {
-      [self applyAnimationForKeyPath:@"transform.rotation.z"
-                        animationKey:kAnimKeyRotate
-                           fromValue:[self presentationValueForKeyPath:
-                                               @"transform.rotation.z"]
-                             toValue:@(degreesToRadians(
-                                         newViewProps.animateRotate))
-                               props:newViewProps
-                                loop:NO];
+
+    // Check if ANY transform-related property changed
+    if (hasTransform) {
+      BOOL anyTransformChanged =
+          oldViewProps.animateTranslateX != newViewProps.animateTranslateX ||
+          oldViewProps.animateTranslateY != newViewProps.animateTranslateY ||
+          oldViewProps.animateScaleX != newViewProps.animateScaleX ||
+          oldViewProps.animateScaleY != newViewProps.animateScaleY ||
+          oldViewProps.animateRotate != newViewProps.animateRotate ||
+          oldViewProps.animateRotateX != newViewProps.animateRotateX ||
+          oldViewProps.animateRotateY != newViewProps.animateRotateY;
+
+      if (anyTransformChanged) {
+        CATransform3D fromT = [self presentationTransform];
+        CATransform3D toT = [self targetTransformFromProps:newViewProps];
+        self.layer.transform = toT;
+        [self applyAnimationForKeyPath:@"transform"
+                          animationKey:kAnimKeyTransform
+                             fromValue:[NSValue valueWithCATransform3D:fromT]
+                               toValue:[NSValue valueWithCATransform3D:toT]
+                                 props:newViewProps
+                                  loop:NO];
+      }
     }
   }
 
@@ -384,6 +383,8 @@ timingFunctionForEasing(EaseViewTransitionEasing easing) {
   _transformOriginX = 0.5;
   _transformOriginY = 0.5;
   self.layer.anchorPoint = CGPointMake(0.5, 0.5);
+  self.layer.opacity = 1.0;
+  self.layer.transform = CATransform3DIdentity;
 }
 
 @end

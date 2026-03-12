@@ -266,6 +266,85 @@ function InterruptDemo() {
   );
 }
 
+function FlipDemo() {
+  const [flipped, setFlipped] = useState(false);
+  return (
+    <Section title="3D Card Flip">
+      <EaseView
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ type: 'spring', damping: 15, stiffness: 120, mass: 1 }}
+        style={styles.flipCard}
+      >
+        <Text style={styles.flipCardText}>{flipped ? '🂠' : '🂡'}</Text>
+      </EaseView>
+      <Button label="Flip" onPress={() => setFlipped((v) => !v)} />
+    </Section>
+  );
+}
+
+function IndependentScaleDemo() {
+  const [active, setActive] = useState(false);
+  return (
+    <Section title="Independent Scale">
+      <EaseView
+        animate={{ scaleX: active ? 1.5 : 1, scaleY: active ? 0.5 : 1 }}
+        transition={{ type: 'spring', damping: 12, stiffness: 200, mass: 1 }}
+        style={styles.box}
+      />
+      <Button
+        label={active ? 'Reset' : 'Squish'}
+        onPress={() => setActive((v) => !v)}
+      />
+    </Section>
+  );
+}
+
+function StyledCardDemo() {
+  const [moved, setMoved] = useState(false);
+  return (
+    <Section title="Style + Animate">
+      <EaseView
+        animate={{ translateY: moved ? -10 : 0 }}
+        transition={{ type: 'spring', damping: 15, stiffness: 120, mass: 1 }}
+        style={styles.styledCard}
+      >
+        <View style={styles.styledCardHeader}>
+          <Text style={styles.styledCardIcon}>🔔</Text>
+          <Text style={styles.styledCardTitle}>New notification</Text>
+        </View>
+        <Text style={styles.styledCardBody}>
+          Opacity comes from style (not animated). Only translateY is animated.
+        </Text>
+      </EaseView>
+      <Button
+        label={moved ? 'Reset' : 'Nudge'}
+        onPress={() => setMoved((v) => !v)}
+      />
+    </Section>
+  );
+}
+
+function CustomEasingDemo() {
+  const [active, setActive] = useState(false);
+  return (
+    <Section title="Custom Easing (Overshoot)">
+      <EaseView
+        animate={{ scale: active ? 1.3 : 1 }}
+        transition={{
+          type: 'timing',
+          duration: 600,
+          easing: [0.68, -0.55, 0.265, 1.55],
+        }}
+        style={styles.box}
+      />
+      <Button
+        label={active ? 'Reset' : 'Overshoot'}
+        onPress={() => setActive((v) => !v)}
+      />
+    </Section>
+  );
+}
+
 function CombinedDemo() {
   const [active, setActive] = useState(false);
   return (
@@ -304,7 +383,11 @@ function DemosScreen() {
       <ExitDemo />
       <InterruptDemo />
       <RotateDemo />
+      <FlipDemo />
+      <IndependentScaleDemo />
       <TransformOriginDemo />
+      <StyledCardDemo />
+      <CustomEasingDemo />
       <CombinedDemo />
     </ScrollView>
   );
@@ -348,6 +431,8 @@ const styles = StyleSheet.create({
     height: 80,
     backgroundColor: '#4a90d9',
     borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#7ab8ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -399,6 +484,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  flipCard: {
+    width: 100,
+    height: 140,
+    backgroundColor: '#4a90d9',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flipCardText: {
+    fontSize: 48,
+  },
   animatedButton: {
     paddingHorizontal: 32,
     paddingVertical: 16,
@@ -433,5 +529,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  styledCard: {
+    opacity: 0.6,
+    backgroundColor: '#2a2a4a',
+    borderRadius: 16,
+    padding: 16,
+    alignSelf: 'stretch',
+  },
+  styledCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  styledCardIcon: {
+    fontSize: 18,
+  },
+  styledCardTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  styledCardBody: {
+    color: '#8888aa',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

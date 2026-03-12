@@ -70,7 +70,7 @@ Timing animations transition from one value to another over a fixed duration wit
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `duration` | `number` | `300` | Duration in milliseconds |
-| `easing` | `string` | `'easeInOut'` | Easing curve |
+| `easing` | `EasingType` | `'easeInOut'` | Easing curve (preset name or `[x1, y1, x2, y2]` cubic bezier) |
 | `loop` | `string` | — | `'repeat'` restarts from the beginning, `'reverse'` alternates direction |
 
 Available easing curves:
@@ -79,6 +79,27 @@ Available easing curves:
 - `'easeIn'` — starts slow, accelerates
 - `'easeOut'` — starts fast, decelerates
 - `'easeInOut'` — slow start and end, fast middle
+- `[x1, y1, x2, y2]` — custom cubic bezier (same as CSS `cubic-bezier()`)
+
+### Custom Easing
+
+Pass a `[x1, y1, x2, y2]` tuple for custom cubic bezier curves. The values correspond to the two control points of the bezier curve, matching the CSS `cubic-bezier()` function.
+
+```tsx
+// Standard Material Design easing
+<EaseView
+  animate={{ opacity: isVisible ? 1 : 0 }}
+  transition={{ type: 'timing', duration: 300, easing: [0.4, 0, 0.2, 1] }}
+/>
+
+// Overshoot (y-values can exceed 0–1)
+<EaseView
+  animate={{ scale: active ? 1.2 : 1 }}
+  transition={{ type: 'timing', duration: 500, easing: [0.68, -0.55, 0.265, 1.55] }}
+/>
+```
+
+x-values (x1, x2) must be between 0 and 1. y-values can exceed this range to create overshoot effects.
 
 ### Spring Animations
 
@@ -113,6 +134,19 @@ Spring presets for common feels:
 { type: 'spring', damping: 20, stiffness: 60, mass: 2 }
 ```
 
+### Disabling Animations
+
+Use `{ type: 'none' }` to apply values immediately without animation. Useful for skipping animations in reduced-motion modes or when you need an instant state change.
+
+```tsx
+<EaseView
+  animate={{ opacity: isVisible ? 1 : 0 }}
+  transition={{ type: 'none' }}
+/>
+```
+
+`onTransitionEnd` fires immediately with `{ finished: true }`.
+
 ### Animatable Properties
 
 All properties are set in the `animate` prop as flat values (no transform array).
@@ -123,11 +157,17 @@ All properties are set in the `animate` prop as flat values (no transform array)
     opacity: 1,       // 0 to 1
     translateX: 0,    // pixels
     translateY: 0,    // pixels
-    scale: 1,         // 1 = normal size
-    rotate: 0,        // degrees
+    scale: 1,         // 1 = normal size (shorthand for scaleX + scaleY)
+    scaleX: 1,        // horizontal scale
+    scaleY: 1,        // vertical scale
+    rotate: 0,        // Z-axis rotation in degrees
+    rotateX: 0,       // X-axis rotation in degrees (3D)
+    rotateY: 0,       // Y-axis rotation in degrees (3D)
   }}
 />
 ```
+
+`scale` is a shorthand that sets both `scaleX` and `scaleY`. When `scaleX` or `scaleY` is also specified, it overrides the `scale` value for that axis.
 
 You can animate any combination of properties simultaneously. All properties share the same transition config.
 
@@ -211,18 +251,26 @@ By default, scale and rotation animate from the view's center. Use `transformOri
 
 ### Style Handling
 
-Use `animate` for animated properties and `style` for everything else. If you accidentally put `opacity` or `transform` in `style`, they will be ignored and you'll get a dev warning.
+`EaseView` accepts all standard `ViewStyle` properties. If a property appears in both `style` and `animate`, the animated value takes priority and the style value is stripped. A dev warning is logged when this happens.
 
 ```tsx
-// ✅ Correct
+// opacity in style works because only translateY is animated
 <EaseView
-  animate={{ opacity: 1, translateY: 0 }}
-  style={{ backgroundColor: 'white', borderRadius: 12, padding: 16 }}
-/>
+  animate={{ translateY: moved ? -10 : 0 }}
+  transition={{ type: 'spring', damping: 15, stiffness: 120, mass: 1 }}
+  style={{
+    opacity: 0.9,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+  }}
+>
+  <Text>Notification card</Text>
+</EaseView>
 
-// ⚠️ opacity in style will be ignored with a warning
+// ⚠️ opacity is in both — animate wins, style opacity is stripped, dev warning logged
 <EaseView
-  animate={{ translateY: 0 }}
+  animate={{ opacity: 1 }}
   style={{ opacity: 0.5, backgroundColor: 'white' }}
 />
 ```
@@ -237,7 +285,7 @@ A `View` that animates property changes using native platform APIs.
 |---|---|---|
 | `animate` | `AnimateProps` | Target values for animated properties |
 | `initialAnimate` | `AnimateProps` | Starting values for enter animations (animates to `animate` on mount) |
-| `transition` | `Transition` | Animation configuration (timing or spring) |
+| `transition` | `Transition` | Animation configuration (timing, spring, or none) |
 | `onTransitionEnd` | `(event) => void` | Called when all animations complete with `{ finished: boolean }` |
 | `transformOrigin` | `{ x?: number; y?: number }` | Pivot point for scale/rotation as 0–1 fractions. Default: `{ x: 0.5, y: 0.5 }` (center) |
 | `useHardwareLayer` | `boolean` | Android only — rasterize to GPU texture during animations. See [Hardware Layers](#hardware-layers-android). Default: `false` |
@@ -252,8 +300,12 @@ A `View` that animates property changes using native platform APIs.
 | `opacity` | `number` | `1` | View opacity (0–1) |
 | `translateX` | `number` | `0` | Horizontal translation in pixels |
 | `translateY` | `number` | `0` | Vertical translation in pixels |
-| `scale` | `number` | `1` | Uniform scale factor |
-| `rotate` | `number` | `0` | Rotation in degrees |
+| `scale` | `number` | `1` | Uniform scale factor (shorthand for `scaleX` + `scaleY`) |
+| `scaleX` | `number` | `1` | Horizontal scale factor (overrides `scale` for X axis) |
+| `scaleY` | `number` | `1` | Vertical scale factor (overrides `scale` for Y axis) |
+| `rotate` | `number` | `0` | Z-axis rotation in degrees |
+| `rotateX` | `number` | `0` | X-axis rotation in degrees (3D) |
+| `rotateY` | `number` | `0` | Y-axis rotation in degrees (3D) |
 
 Properties not specified in `animate` default to their identity values.
 
@@ -263,7 +315,7 @@ Properties not specified in `animate` default to their identity values.
 {
   type: 'timing';
   duration?: number;  // default: 300 (ms)
-  easing?: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';  // default: 'easeInOut'
+  easing?: EasingType;  // default: 'easeInOut' — preset name or [x1, y1, x2, y2]
   loop?: 'repeat' | 'reverse';  // default: none
 }
 ```
@@ -278,6 +330,16 @@ Properties not specified in `animate` default to their identity values.
   mass?: number;       // default: 1
 }
 ```
+
+### `NoneTransition`
+
+```tsx
+{
+  type: 'none';
+}
+```
+
+Applies values instantly with no animation. `onTransitionEnd` fires immediately with `{ finished: true }`.
 
 ## Hardware Layers (Android)
 

@@ -1,6 +1,7 @@
 package com.ease
 
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.common.MapBuilder
 import com.facebook.react.module.annotations.ReactModule
@@ -29,6 +30,13 @@ class EaseViewManager : ReactViewManager() {
         return view
     }
 
+    // --- Animated properties bitmask ---
+
+    @ReactProp(name = "animatedProperties", defaultInt = 0)
+    fun setAnimatedProperties(view: EaseView, value: Int) {
+        view.animatedProperties = value
+    }
+
     // --- Animate value setters ---
 
     @ReactProp(name = "animateOpacity", defaultFloat = 1f)
@@ -46,14 +54,29 @@ class EaseViewManager : ReactViewManager() {
         view.pendingTranslateY = PixelUtil.toPixelFromDIP(value)
     }
 
-    @ReactProp(name = "animateScale", defaultFloat = 1f)
-    fun setAnimateScale(view: EaseView, value: Float) {
-        view.pendingScale = value
+    @ReactProp(name = "animateScaleX", defaultFloat = 1f)
+    fun setAnimateScaleX(view: EaseView, value: Float) {
+        view.pendingScaleX = value
+    }
+
+    @ReactProp(name = "animateScaleY", defaultFloat = 1f)
+    fun setAnimateScaleY(view: EaseView, value: Float) {
+        view.pendingScaleY = value
     }
 
     @ReactProp(name = "animateRotate", defaultFloat = 0f)
     fun setAnimateRotate(view: EaseView, value: Float) {
         view.pendingRotate = value
+    }
+
+    @ReactProp(name = "animateRotateX", defaultFloat = 0f)
+    fun setAnimateRotateX(view: EaseView, value: Float) {
+        view.pendingRotateX = value
+    }
+
+    @ReactProp(name = "animateRotateY", defaultFloat = 0f)
+    fun setAnimateRotateY(view: EaseView, value: Float) {
+        view.pendingRotateY = value
     }
 
     // --- Initial animate value setters ---
@@ -73,14 +96,29 @@ class EaseViewManager : ReactViewManager() {
         view.initialAnimateTranslateY = PixelUtil.toPixelFromDIP(value)
     }
 
-    @ReactProp(name = "initialAnimateScale", defaultFloat = 1f)
-    fun setInitialAnimateScale(view: EaseView, value: Float) {
-        view.initialAnimateScale = value
+    @ReactProp(name = "initialAnimateScaleX", defaultFloat = 1f)
+    fun setInitialAnimateScaleX(view: EaseView, value: Float) {
+        view.initialAnimateScaleX = value
+    }
+
+    @ReactProp(name = "initialAnimateScaleY", defaultFloat = 1f)
+    fun setInitialAnimateScaleY(view: EaseView, value: Float) {
+        view.initialAnimateScaleY = value
     }
 
     @ReactProp(name = "initialAnimateRotate", defaultFloat = 0f)
     fun setInitialAnimateRotate(view: EaseView, value: Float) {
         view.initialAnimateRotate = value
+    }
+
+    @ReactProp(name = "initialAnimateRotateX", defaultFloat = 0f)
+    fun setInitialAnimateRotateX(view: EaseView, value: Float) {
+        view.initialAnimateRotateX = value
+    }
+
+    @ReactProp(name = "initialAnimateRotateY", defaultFloat = 0f)
+    fun setInitialAnimateRotateY(view: EaseView, value: Float) {
+        view.initialAnimateRotateY = value
     }
 
     // --- Transition config setters ---
@@ -95,9 +133,19 @@ class EaseViewManager : ReactViewManager() {
         view.transitionDuration = value
     }
 
-    @ReactProp(name = "transitionEasing")
-    fun setTransitionEasing(view: EaseView, value: String?) {
-        view.transitionEasing = value ?: "easeInOut"
+    @ReactProp(name = "transitionEasingBezier")
+    fun setTransitionEasingBezier(view: EaseView, value: ReadableArray?) {
+        if (value != null && value.size() == 4) {
+            view.transitionEasingBezier = floatArrayOf(
+                value.getDouble(0).toFloat(),
+                value.getDouble(1).toFloat(),
+                value.getDouble(2).toFloat(),
+                value.getDouble(3).toFloat()
+            )
+        } else {
+            // Fallback: easeInOut
+            view.transitionEasingBezier = floatArrayOf(0.42f, 0f, 0.58f, 1.0f)
+        }
     }
 
     @ReactProp(name = "transitionDamping", defaultFloat = 15f)

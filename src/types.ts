@@ -1,5 +1,13 @@
+/** Cubic bezier control points: [x1, y1, x2, y2]. */
+export type CubicBezier = [number, number, number, number];
+
 /** Easing curve for timing animations. */
-export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+export type EasingType =
+  | 'linear'
+  | 'easeIn'
+  | 'easeOut'
+  | 'easeInOut'
+  | CubicBezier;
 
 /** Timing-based transition with fixed duration and easing curve. */
 export type TimingTransition = {
@@ -23,8 +31,13 @@ export type SpringTransition = {
   mass?: number;
 };
 
+/** No transition — values are applied immediately without animation. */
+export type NoneTransition = {
+  type: 'none';
+};
+
 /** Animation transition configuration. */
-export type Transition = TimingTransition | SpringTransition;
+export type Transition = TimingTransition | SpringTransition | NoneTransition;
 
 /** Event fired when the animation ends. */
 export type TransitionEndEvent = {
@@ -48,8 +61,16 @@ export type AnimateProps = {
   translateX?: number;
   /** Vertical translation in pixels. @default 0 */
   translateY?: number;
-  /** Uniform scale factor. @default 1 */
+  /** Uniform scale factor (shorthand for scaleX + scaleY). @default 1 */
   scale?: number;
-  /** Rotation in degrees. @default 0 */
+  /** Horizontal scale factor. Overrides `scale` for the X axis. @default 1 */
+  scaleX?: number;
+  /** Vertical scale factor. Overrides `scale` for the Y axis. @default 1 */
+  scaleY?: number;
+  /** Z-axis rotation in degrees. @default 0 */
   rotate?: number;
+  /** X-axis rotation in degrees (3D). @default 0 */
+  rotateX?: number;
+  /** Y-axis rotation in degrees (3D). @default 0 */
+  rotateY?: number;
 };

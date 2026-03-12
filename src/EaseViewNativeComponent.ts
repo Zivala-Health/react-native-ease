@@ -6,27 +6,37 @@ import {
 } from 'react-native';
 
 export interface NativeProps extends ViewProps {
+  // Bitmask of which properties are animated (0 = none, let style handle all)
+  animatedProperties?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+
   // Animate target values
   animateOpacity?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
   animateTranslateX?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
   animateTranslateY?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
-  animateScale?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
+  animateScaleX?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
+  animateScaleY?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
   animateRotate?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
+  animateRotateX?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
+  animateRotateY?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
 
   // Initial values for enter animations
   initialAnimateOpacity?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
   initialAnimateTranslateX?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
   initialAnimateTranslateY?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
-  initialAnimateScale?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
+  initialAnimateScaleX?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
+  initialAnimateScaleY?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
   initialAnimateRotate?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
+  initialAnimateRotateX?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
+  initialAnimateRotateY?: CodegenTypes.WithDefault<CodegenTypes.Float, 0.0>;
 
   // Transition config
-  transitionType?: CodegenTypes.WithDefault<'timing' | 'spring', 'timing'>;
-  transitionDuration?: CodegenTypes.WithDefault<CodegenTypes.Int32, 300>;
-  transitionEasing?: CodegenTypes.WithDefault<
-    'linear' | 'easeIn' | 'easeOut' | 'easeInOut',
-    'easeInOut'
+  transitionType?: CodegenTypes.WithDefault<
+    'timing' | 'spring' | 'none',
+    'timing'
   >;
+  transitionDuration?: CodegenTypes.WithDefault<CodegenTypes.Int32, 300>;
+  // Easing cubic bezier control points [x1, y1, x2, y2] (default: easeInOut)
+  transitionEasingBezier?: ReadonlyArray<CodegenTypes.Float>;
   transitionDamping?: CodegenTypes.WithDefault<CodegenTypes.Float, 15.0>;
   transitionStiffness?: CodegenTypes.WithDefault<CodegenTypes.Float, 120.0>;
   transitionMass?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
