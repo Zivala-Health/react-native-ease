@@ -32,7 +32,7 @@ If you're already using `react-native-reanimated` or React Native's `Animated` A
 npx skills add appandflow/react-native-ease
 ```
 
-Then invoke the skill in your agent (e.g., `/refactor` in Claude Code).
+Then invoke the skill in your agent (e.g., `/react-native-ease-refactor` in Claude Code).
 
 The skill will:
 

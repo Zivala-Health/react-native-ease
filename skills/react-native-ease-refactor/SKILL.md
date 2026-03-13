@@ -1,5 +1,5 @@
 ---
-name: refactor
+name: react-native-ease-refactor
 description: Scan for Animated/Reanimated code and migrate to EaseView
 user-invocable: true
 ---
