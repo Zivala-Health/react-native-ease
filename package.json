@@ -55,14 +55,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/janicduplessis/react-native-ease.git"
+    "url": "git+https://github.com/AppAndFlow/react-native-ease.git"
   },
   "author": "Janic Duplessis <janic@appandflow.com> (https://github.com/janicduplessis)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/janicduplessis/react-native-ease/issues"
+    "url": "https://github.com/AppAndFlow/react-native-ease/issues"
   },
-  "homepage": "https://github.com/janicduplessis/react-native-ease#readme",
+  "homepage": "https://github.com/AppAndFlow/react-native-ease#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
