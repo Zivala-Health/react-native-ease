@@ -229,6 +229,10 @@ static const int kMaskAnyTransform = kMaskTranslateX | kMaskTranslateY |
   const auto &newViewProps =
       *std::static_pointer_cast<const EaseViewProps>(props);
 
+  // oldProps can be null. Fall back to props so the diff is a no-op.
+  const auto &oldViewProps = *std::static_pointer_cast<const EaseViewProps>(
+      oldProps ? oldProps : props);
+
   [super updateProps:props oldProps:oldProps];
 
   [CATransaction begin];
@@ -387,8 +391,6 @@ static const int kMaskAnyTransform = kMaskTranslateX | kMaskTranslateY |
     }
   } else {
     // Subsequent updates: animate changed properties
-    const auto &oldViewProps =
-        *std::static_pointer_cast<const EaseViewProps>(oldProps);
 
     if ((mask & kMaskOpacity) &&
         oldViewProps.animateOpacity != newViewProps.animateOpacity) {
