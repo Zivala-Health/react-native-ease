@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { EaseView } from 'react-native-ease';
+import { EaseView } from 'react-native-ease/uniwind';
 
 import { Section } from '../components/Section';
 import { Button } from '../components/Button';

@@ -3,7 +3,8 @@
     "rootDir": ".",
     "paths": {
       "react-native-ease": ["./src/index"],
-      "react-native-ease/nativewind": ["./src/nativewind"]
+      "react-native-ease/nativewind": ["./src/nativewind"],
+      "react-native-ease/uniwind": ["./src/uniwind"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
@@ -27,5 +28,6 @@
     "strict": true,
     "target": "ESNext",
     "verbatimModuleSyntax": true
-  }
+  },
+  "exclude": ["example/uniwind-types.d.ts"]
 }

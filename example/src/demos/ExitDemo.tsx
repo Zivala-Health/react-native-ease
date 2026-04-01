@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { EaseView, type TransitionEndEvent } from 'react-native-ease';
+import type { TransitionEndEvent } from 'react-native-ease';
+import { EaseView } from 'react-native-ease/uniwind';
 
 import { Section } from '../components/Section';
 import { Button } from '../components/Button';

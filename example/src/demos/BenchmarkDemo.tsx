@@ -7,7 +7,7 @@ import {
   Easing as RNEasing,
   Pressable,
 } from 'react-native';
-import { EaseView } from 'react-native-ease';
+import { EaseView } from 'react-native-ease/uniwind';
 import Animated, {
   createCSSAnimatedComponent,
   css,

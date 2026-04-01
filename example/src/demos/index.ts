@@ -22,6 +22,7 @@ import { StyleReRenderDemo } from './StyleReRenderDemo';
 import { StyledCardDemo } from './StyledCardDemo';
 import { TransformOriginDemo } from './TransformOriginDemo';
 import { PerPropertyDemo } from './PerPropertyDemo';
+import { UniwindDemo } from './UniwindDemo';
 
 interface DemoEntry {
   component: ComponentType;
@@ -52,6 +53,11 @@ export const demos: Record<string, DemoEntry> = {
   'styled-card': {
     component: StyledCardDemo,
     title: 'Styled Card',
+    section: 'Style',
+  },
+  'uniwind': {
+    component: UniwindDemo,
+    title: 'Uniwind className',
     section: 'Style',
   },
   'border-radius': {

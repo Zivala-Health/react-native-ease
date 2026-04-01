@@ -15,6 +15,11 @@
       "types": "./lib/typescript/src/nativewind.d.ts",
       "default": "./lib/module/nativewind.js"
     },
+    "./uniwind": {
+      "source": "./src/uniwind.ts",
+      "types": "./lib/typescript/src/uniwind.d.ts",
+      "default": "./lib/module/uniwind.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -104,10 +109,14 @@
   "peerDependencies": {
     "nativewind": ">=4",
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "uniwind": ">=1"
   },
   "peerDependenciesMeta": {
     "nativewind": {
+      "optional": true
+    },
+    "uniwind": {
       "optional": true
     }
   },

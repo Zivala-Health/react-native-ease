@@ -14,7 +14,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { EaseView } from 'react-native-ease';
+import { EaseView } from 'react-native-ease/uniwind';
 import { scheduleOnUI } from 'react-native-worklets';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

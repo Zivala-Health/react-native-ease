@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { EaseView } from 'react-native-ease';
+import type { TransitionEndEvent } from 'react-native-ease';
+import { EaseView } from 'react-native-ease/uniwind';
 
 import { Section } from '../components/Section';
 import { Button } from '../components/Button';
@@ -17,7 +18,7 @@ export function InterruptDemo() {
       <EaseView
         animate={{ translateX: moved ? 200 : 0 }}
         transition={{ type: 'timing', duration: 1000, easing: 'easeInOut' }}
-        onTransitionEnd={({ finished }) => {
+        onTransitionEnd={({ finished }: TransitionEndEvent) => {
           setStatus(finished ? 'Finished' : 'Interrupted!');
         }}
         style={styles.box}

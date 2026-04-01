@@ -3,6 +3,7 @@
 Lightweight declarative animations powered by platform APIs. Uses Core Animation on iOS and Animator on Android — zero JS overhead.
 
 ## About
+
 App & Flow is a Montreal-based React Native engineering and consulting studio. We partner with the world’s top companies and are recommended by [Expo](https://expo.dev/consultants). Need a hand? Let’s build together. team@appandflow.com
 
 ## Demo
@@ -58,6 +59,16 @@ This registers `EaseView` with NativeWind's `cssInterop` so `className` is prope
 ```
 
 > **Tip:** If you use the [migration skill](#migration-skill), it detects NativeWind automatically and adds this import for you.
+
+### Uniwind Support
+
+If you're using [Uniwind](https://docs.uniwind.dev/quickstart), import the Uniwind-wrapped `EaseView`:
+
+```tsx
+import { EaseView } from 'react-native-ease/uniwind';
+```
+
+`react-native-ease/uniwind` exports `EaseView` wrapped with Uniwind's `withUniwind`, so `className` is resolved into native styles.
 
 ### Example
 
@@ -346,16 +357,18 @@ Use `delay` to postpone the start of an animation. This is useful for staggering
 
 ```tsx
 // Staggered fade-in list
-{items.map((item, i) => (
-  <EaseView
-    key={item.id}
-    initialAnimate={{ opacity: 0, translateY: 20 }}
-    animate={{ opacity: 1, translateY: 0 }}
-    transition={{ type: 'timing', duration: 300, delay: i * 100 }}
-  >
-    <Text>{item.label}</Text>
-  </EaseView>
-))}
+{
+  items.map((item, i) => (
+    <EaseView
+      key={item.id}
+      initialAnimate={{ opacity: 0, translateY: 20 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 300, delay: i * 100 }}
+    >
+      <Text>{item.label}</Text>
+    </EaseView>
+  ));
+}
 ```
 
 `delay` works with both timing and spring transitions.
@@ -433,18 +446,18 @@ By default, scale and rotation animate from the view's center. Use `transformOri
 
 A `View` that animates property changes using native platform APIs.
 
-| Prop               | Type                         | Description                                                                                                                  |
-| ------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `animate`          | `AnimateProps`               | Target values for animated properties                                                                                        |
-| `initialAnimate`   | `AnimateProps`               | Starting values for enter animations (animates to `animate` on mount)                                                        |
-| `transition`       | `Transition`                 | Animation configuration — a single config (timing, spring, or none) or a [per-property map](#per-property-transitions)        |
-| `onTransitionEnd`  | `(event) => void`            | Called when all animations complete with `{ finished: boolean }`                                                             |
-| `transformOrigin`  | `{ x?: number; y?: number }` | Pivot point for scale/rotation as 0–1 fractions. Default: `{ x: 0.5, y: 0.5 }` (center)                                      |
-| `useHardwareLayer` | `boolean`                    | Android only — rasterize to GPU texture during animations. See [Hardware Layers](#hardware-layers-android). Default: `false` |
-| `className`        | `string`                     | NativeWind / Tailwind CSS class string. Requires NativeWind in your project.                                                 |
-| `style`            | `ViewStyle`                  | Non-animated styles (layout, colors, borders, etc.)                                                                          |
-| `children`         | `ReactNode`                  | Child elements                                                                                                               |
-| ...rest            | `ViewProps`                  | All other standard View props                                                                                                |
+| Prop               | Type                         | Description                                                                                                                                            |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `animate`          | `AnimateProps`               | Target values for animated properties                                                                                                                  |
+| `initialAnimate`   | `AnimateProps`               | Starting values for enter animations (animates to `animate` on mount)                                                                                  |
+| `transition`       | `Transition`                 | Animation configuration — a single config (timing, spring, or none) or a [per-property map](#per-property-transitions)                                 |
+| `onTransitionEnd`  | `(event) => void`            | Called when all animations complete with `{ finished: boolean }`                                                                                       |
+| `transformOrigin`  | `{ x?: number; y?: number }` | Pivot point for scale/rotation as 0–1 fractions. Default: `{ x: 0.5, y: 0.5 }` (center)                                                                |
+| `useHardwareLayer` | `boolean`                    | Android only — rasterize to GPU texture during animations. See [Hardware Layers](#hardware-layers-android). Default: `false`                           |
+| `className`        | `string`                     | Tailwind class string via NativeWind or Uniwind. Requires `react-native-ease/nativewind` import (NativeWind) or `react-native-ease/uniwind` (Uniwind). |
+| `style`            | `ViewStyle`                  | Non-animated styles (layout, colors, borders, etc.)                                                                                                    |
+| `children`         | `ReactNode`                  | Child elements                                                                                                                                         |
+| ...rest            | `ViewProps`                  | All other standard View props                                                                                                                          |
 
 ### `AnimateProps`
 
@@ -540,16 +553,16 @@ UI thread time per frame: anim + layout + draw (ms). Lower is better.
 <summary>Detailed numbers</summary>
 
 | Views | Metric | Ease | Reanimated SV | Reanimated SV (FF) | Reanimated CSS | Reanimated CSS (FF) | RN Animated |
-|-------|--------|------|---------------|---------------------|----------------|----------------------|-------------|
-| 10 | Avg | 0.21 | 1.15 | 0.75 | 0.99 | 0.45 | 0.36 |
-| 10 | P95 | 0.33 | 1.70 | 1.53 | 1.44 | 0.80 | 0.62 |
-| 10 | P99 | 0.48 | 1.94 | 2.26 | 1.62 | 1.35 | 0.98 |
-| 100 | Avg | 0.36 | 2.71 | 1.81 | 2.19 | 1.01 | 0.71 |
-| 100 | P95 | 0.56 | 3.09 | 2.29 | 2.67 | 1.91 | 1.08 |
-| 100 | P99 | 0.71 | 3.20 | 2.63 | 2.97 | 2.25 | 1.36 |
-| 500 | Avg | 0.60 | 8.31 | 5.37 | 5.50 | 2.37 | 1.60 |
-| 500 | P95 | 0.75 | 9.26 | 6.36 | 6.34 | 2.86 | 1.88 |
-| 500 | P99 | 0.87 | 9.59 | 6.89 | 6.88 | 3.22 | 3.84 |
+| ----- | ------ | ---- | ------------- | ------------------ | -------------- | ------------------- | ----------- |
+| 10    | Avg    | 0.21 | 1.15          | 0.75               | 0.99           | 0.45                | 0.36        |
+| 10    | P95    | 0.33 | 1.70          | 1.53               | 1.44           | 0.80                | 0.62        |
+| 10    | P99    | 0.48 | 1.94          | 2.26               | 1.62           | 1.35                | 0.98        |
+| 100   | Avg    | 0.36 | 2.71          | 1.81               | 2.19           | 1.01                | 0.71        |
+| 100   | P95    | 0.56 | 3.09          | 2.29               | 2.67           | 1.91                | 1.08        |
+| 100   | P99    | 0.71 | 3.20          | 2.63               | 2.97           | 2.25                | 1.36        |
+| 500   | Avg    | 0.60 | 8.31          | 5.37               | 5.50           | 2.37                | 1.60        |
+| 500   | P95    | 0.75 | 9.26          | 6.36               | 6.34           | 2.86                | 1.88        |
+| 500   | P99    | 0.87 | 9.59          | 6.89               | 6.88           | 3.22                | 3.84        |
 
 </details>
 
@@ -563,16 +576,16 @@ Display link callback time per frame (ms). Lower is better.
 <summary>Detailed numbers</summary>
 
 | Views | Metric | Ease | Reanimated SV | Reanimated SV (FF) | Reanimated CSS | Reanimated CSS (FF) | RN Animated |
-|-------|--------|------|---------------|---------------------|----------------|----------------------|-------------|
-| 10 | Avg | 0.01 | 1.33 | 1.08 | 1.06 | 0.63 | 0.83 |
-| 10 | P95 | 0.02 | 1.67 | 1.59 | 1.34 | 1.01 | 1.18 |
-| 10 | P99 | 0.03 | 1.90 | 1.68 | 1.50 | 1.08 | 1.31 |
-| 100 | Avg | 0.01 | 3.72 | 3.33 | 2.71 | 2.48 | 3.32 |
-| 100 | P95 | 0.01 | 5.21 | 4.50 | 3.83 | 3.39 | 4.28 |
-| 100 | P99 | 0.02 | 5.68 | 4.75 | 4.91 | 3.79 | 4.55 |
-| 500 | Avg | 0.01 | 6.84 | 6.54 | 4.16 | 3.70 | 4.91 |
-| 500 | P95 | 0.01 | 7.69 | 7.32 | 4.59 | 4.22 | 5.66 |
-| 500 | P99 | 0.02 | 8.10 | 7.45 | 4.71 | 4.33 | 5.89 |
+| ----- | ------ | ---- | ------------- | ------------------ | -------------- | ------------------- | ----------- |
+| 10    | Avg    | 0.01 | 1.33          | 1.08               | 1.06           | 0.63                | 0.83        |
+| 10    | P95    | 0.02 | 1.67          | 1.59               | 1.34           | 1.01                | 1.18        |
+| 10    | P99    | 0.03 | 1.90          | 1.68               | 1.50           | 1.08                | 1.31        |
+| 100   | Avg    | 0.01 | 3.72          | 3.33               | 2.71           | 2.48                | 3.32        |
+| 100   | P95    | 0.01 | 5.21          | 4.50               | 3.83           | 3.39                | 4.28        |
+| 100   | P99    | 0.02 | 5.68          | 4.75               | 4.91           | 3.79                | 4.55        |
+| 500   | Avg    | 0.01 | 6.84          | 6.54               | 4.16           | 3.70                | 4.91        |
+| 500   | P95    | 0.01 | 7.69          | 7.32               | 4.59           | 4.22                | 5.66        |
+| 500   | P99    | 0.02 | 8.10          | 7.45               | 4.71           | 4.33                | 5.89        |
 
 </details>
 
