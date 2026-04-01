@@ -45,7 +45,7 @@
   "scripts": {
     "example": "yarn workspace react-native-ease-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
-    "prepack": "bob build",
+    "build": "bob build",
     "test": "jest",
     "lint": "yarn lint:eslint && yarn lint:ts",
     "lint:ts": "tsc",
